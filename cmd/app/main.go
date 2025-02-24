@@ -1,17 +1,71 @@
 package main
 
 import (
+	"log/slog"
 	"net/http"
 	"os"
+	"time"
+
+	"github.com/Keyruu/sirberus/internal/api"
+	"github.com/Keyruu/sirberus/web"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	// Serve embedded frontend
-	http.Handle("/", http.FileServer(
-		http.FS(os.DirFS("web/dist")),
-	))
+	// Initialize logger with structured output
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
 
-	// API endpoints
-	http.HandleFunc("/api/units", func(w http.ResponseWriter, r *http.Request) {})
-	http.HandleFunc("/api/containers", func(w http.ResponseWriter, r *http.Request) {})
+	port := ":9733"
+
+	// Create gin router
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+	router.Use(gin.Recovery())
+
+	// Initialize systemd handler
+	systemdHandler, err := api.NewSystemdHandler(logger)
+	if err != nil {
+		logger.Error("failed to create systemd handler", "error", err)
+		os.Exit(1)
+	}
+	defer systemdHandler.Close()
+
+	// Register API routes first
+	apiGroup := router.Group("/api")
+	systemdGroup := apiGroup.Group("/systemd")
+	systemdHandler.RegisterRoutes(systemdGroup)
+
+	// Setup static file serving
+	assetsFS, err := web.AssetsFS()
+	if err != nil {
+		logger.Error("failed to create assets file system", "error", err)
+		os.Exit(1)
+	}
+
+	// Serve static files for any non-API routes
+	router.NoRoute(func(c *gin.Context) {
+		if c.Request.URL.Path[:4] != "/api" {
+			c.FileFromFS(c.Request.URL.Path, http.FS(assetsFS))
+			return
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+	})
+
+	logger.Info("🚀 Starting server on port", "port", port)
+	logger.Info("👂 Listening for incoming requests...")
+
+	server := &http.Server{
+		Addr:         port,
+		Handler:      router,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
+		logger.Error("server stopped", "error", err)
+		os.Exit(1)
+	}
 }
