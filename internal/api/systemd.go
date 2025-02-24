@@ -30,12 +30,6 @@ func NewSystemdHandler(logger *slog.Logger) (*SystemdHandler, error) {
 	}, nil
 }
 
-func (h *SystemdHandler) Close() {
-	if h.service != nil {
-		h.service.Close()
-	}
-}
-
 func (h *SystemdHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/services", h.listServices)
 	rg.GET("/services/:name", h.getService)

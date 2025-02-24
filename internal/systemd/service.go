@@ -13,7 +13,6 @@ import (
 )
 
 type SystemdService struct {
-	conn   *dbus.Conn
 	logger *slog.Logger
 }
 
@@ -22,33 +21,31 @@ func NewSystemdService(logger *slog.Logger) (*SystemdService, error) {
 		return nil, fmt.Errorf("systemd is only supported on Linux")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	conn, err := dbus.NewWithContext(ctx)
-	if err != nil {
-		logger.Error("failed to connect to systemd", "error", err)
-		return nil, fmt.Errorf("failed to connect to systemd: %w", err)
-	}
-
 	return &SystemdService{
-		conn:   conn,
 		logger: logger.With("component", "systemd_service"),
 	}, nil
 }
 
-func (s *SystemdService) Close() {
-	if s.conn != nil {
-		s.conn.Close()
+func (s *SystemdService) newConnection(ctx context.Context) (*dbus.Conn, error) {
+	conn, err := dbus.NewWithContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to systemd: %w", err)
 	}
+	return conn, nil
 }
 
 func (s *SystemdService) GetUnitDetails(name string) (*types.SystemdServiceDetails, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	conn, err := s.newConnection(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
 	// Get basic unit information
-	units, err := s.conn.ListUnitsContext(ctx)
+	units, err := conn.ListUnitsContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list units: %w", err)
 	}
@@ -84,7 +81,7 @@ func (s *SystemdService) GetUnitDetails(name string) (*types.SystemdServiceDetai
 	}
 
 	// Get additional properties
-	props, err := s.conn.GetAllPropertiesContext(ctx, name)
+	props, err := conn.GetAllPropertiesContext(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service properties: %w", err)
 	}
@@ -208,7 +205,13 @@ func (s *SystemdService) ListUnits() (*types.SystemdServiceList, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	units, err := s.conn.ListUnitsContext(ctx)
+	conn, err := s.newConnection(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	units, err := conn.ListUnitsContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list units: %w", err)
 	}
@@ -257,8 +260,14 @@ func (s *SystemdService) StartUnit(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	conn, err := s.newConnection(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
 	ch := make(chan string)
-	_, err := s.conn.StartUnitContext(ctx, name, "replace", ch)
+	_, err = conn.StartUnitContext(ctx, name, "replace", ch)
 	if err != nil {
 		return fmt.Errorf("failed to start unit: %w", err)
 	}
@@ -276,8 +285,14 @@ func (s *SystemdService) StopUnit(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	conn, err := s.newConnection(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
 	ch := make(chan string)
-	_, err := s.conn.StopUnitContext(ctx, name, "replace", ch)
+	_, err = conn.StopUnitContext(ctx, name, "replace", ch)
 	if err != nil {
 		return fmt.Errorf("failed to stop unit: %w", err)
 	}
@@ -295,8 +310,14 @@ func (s *SystemdService) RestartUnit(name string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	conn, err := s.newConnection(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
 	ch := make(chan string)
-	_, err := s.conn.RestartUnitContext(ctx, name, "replace", ch)
+	_, err = conn.RestartUnitContext(ctx, name, "replace", ch)
 	if err != nil {
 		return fmt.Errorf("failed to restart unit: %w", err)
 	}
@@ -316,12 +337,18 @@ type ServiceMetrics struct {
 }
 
 func (s *SystemdService) getServiceMetrics(ctx context.Context, unitName string) (*ServiceMetrics, error) {
-	cpuProp, err := s.conn.GetServicePropertyContext(ctx, unitName, "CPUUsageNSec")
+	conn, err := s.newConnection(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	cpuProp, err := conn.GetServicePropertyContext(ctx, unitName, "CPUUsageNSec")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CPU usage: %w", err)
 	}
 
-	memProp, err := s.conn.GetServicePropertyContext(ctx, unitName, "MemoryCurrent")
+	memProp, err := conn.GetServicePropertyContext(ctx, unitName, "MemoryCurrent")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get memory usage: %w", err)
 	}

@@ -31,7 +31,6 @@ func main() {
 		logger.Error("failed to create systemd handler", "error", err)
 		os.Exit(1)
 	}
-	defer systemdHandler.Close()
 
 	// Register API routes first
 	apiGroup := router.Group("/api")
