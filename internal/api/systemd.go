@@ -117,6 +117,7 @@ func setupSSE(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("Transfer-Encoding", "chunked")
+	c.Writer.Flush()
 }
 
 func (h *SystemdHandler) streamService(c *gin.Context) {
@@ -176,6 +177,10 @@ func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 	setupSSE(c)
 
+	// Send an initial event to confirm connection
+	c.SSEvent("info", fmt.Sprintf("Connected to log stream for %s", name))
+	c.Writer.Flush()
+
 	// Parse query parameters
 	follow := true
 	if followParam := c.Query("follow"); followParam == "false" {
@@ -209,6 +214,8 @@ func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 			if !ok {
 				h.logger.Info("log channel closed",
 					"service", name)
+				c.SSEvent("info", "Log stream ended")
+				c.Writer.Flush()
 				return
 			}
 			c.SSEvent("log", log)

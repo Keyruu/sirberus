@@ -430,14 +430,6 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 				errCh <- ctx.Err()
 				return
 			default:
-				// Wait for new journal entries if following, otherwise just process what we have
-				if follow {
-					waitResult := journal.Wait(time.Second)
-					if waitResult == sdjournal.SD_JOURNAL_NOP {
-						continue // No new entries yet
-					}
-				}
-
 				// Read the next entry
 				n, err := journal.Next()
 				if err != nil {
@@ -450,7 +442,13 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 					if !follow {
 						return // We're done if not following
 					}
-					continue // Wait for more entries if following
+					
+					// Wait for new entries if following
+					waitResult := journal.Wait(time.Second)
+					if waitResult == sdjournal.SD_JOURNAL_NOP {
+						continue // No new entries yet
+					}
+					continue
 				}
 
 				// Get the log message
@@ -468,8 +466,8 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 					timestamp = time.Now()
 				}
 
-				// Format the log entry
-				formattedLog := fmt.Sprintf("%s: %s", timestamp.Format(time.RFC3339), message)
+				// Format the log entry with timestamp and service name
+				formattedLog := fmt.Sprintf("[%s] %s", timestamp.Format(time.RFC3339), message)
 
 				// Send the log entry
 				select {
