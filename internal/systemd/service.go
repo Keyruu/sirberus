@@ -1,16 +1,17 @@
 package systemd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
+	"os/exec"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/Keyruu/sirberus/internal/types"
 	"github.com/coreos/go-systemd/v22/dbus"
-	"github.com/coreos/go-systemd/v22/sdjournal"
 )
 
 type SystemdService struct {
@@ -373,7 +374,7 @@ func (s *SystemdService) getServiceMetrics(ctx context.Context, unitName string)
 	}, nil
 }
 
-// StreamServiceLogs streams logs from a systemd service using the journal API
+// StreamServiceLogs streams logs from a systemd service using journalctl command
 // It returns a channel that will receive log entries and an error channel
 func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string, follow bool, numLines int) (<-chan string, <-chan error) {
 	logCh := make(chan string)
@@ -383,153 +384,94 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 		defer close(logCh)
 		defer close(errCh)
 
-		// Open a new journal
-		journal, err := sdjournal.NewJournal()
-		if err != nil {
-			errCh <- fmt.Errorf("failed to open journal: %w", err)
-			return
+		// Build journalctl command
+		args := []string{"-u", unitName}
+		
+		if follow {
+			args = append(args, "-f")
 		}
-		defer journal.Close()
-
-		// Add filter for the specific unit
-		if err := journal.AddMatch("_SYSTEMD_UNIT=" + unitName); err != nil {
-			errCh <- fmt.Errorf("failed to add unit match: %w", err)
-			return
-		}
-
-		// Set up the journal position based on follow mode and numLines
+		
 		if numLines > 0 {
-			// Seek to the end and then go back numLines entries
-			if err := journal.SeekTail(); err != nil {
-				errCh <- fmt.Errorf("failed to seek to tail: %w", err)
-				return
+			args = append(args, "-n", fmt.Sprintf("%d", numLines))
+		}
+		
+		// Add output formatting
+		args = append(args, "-o", "short-iso")
+		
+		s.logger.Debug("executing journalctl command", "args", args)
+		
+		// Create command with context
+		cmd := exec.CommandContext(ctx, "journalctl", args...)
+		
+		// Get stdout pipe
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			errCh <- fmt.Errorf("failed to get stdout pipe: %w", err)
+			return
+		}
+		
+		// Get stderr pipe for error reporting
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			errCh <- fmt.Errorf("failed to get stderr pipe: %w", err)
+			return
+		}
+		
+		// Start the command
+		if err := cmd.Start(); err != nil {
+			errCh <- fmt.Errorf("failed to start journalctl: %w", err)
+			return
+		}
+		
+		// Handle stderr in a separate goroutine
+		go func() {
+			scanner := bufio.NewScanner(stderr)
+			var errMsg strings.Builder
+			for scanner.Scan() {
+				errMsg.WriteString(scanner.Text())
+				errMsg.WriteString("\n")
+			}
+			if errMsg.Len() > 0 {
+				s.logger.Warn("journalctl stderr output", "stderr", errMsg.String())
+			}
+		}()
+		
+		// Read stdout line by line
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			line := scanner.Text()
+			
+			// Skip empty lines
+			if strings.TrimSpace(line) == "" {
+				continue
 			}
 			
-			// Get current cursor position for debugging
-			cursor, _ := journal.GetCursor()
-			s.logger.Debug("journal tail position", "cursor", cursor)
-			
-			// Move back numLines entries
-			skipped := 0
-			for i := 0; i < numLines; i++ {
-				n, err := journal.Previous()
-				if err != nil {
-					errCh <- fmt.Errorf("failed to move to previous entry: %w", err)
-					return
-				}
-				if n == 0 {
-					s.logger.Debug("reached beginning of journal", "skipped", skipped)
-					break // Reached the beginning of the journal
-				}
-				skipped++
-			}
-			s.logger.Debug("moved back in journal", "entries", skipped)
-		} else {
-			// If numLines is 0, start from the beginning
-			if err := journal.SeekHead(); err != nil {
-				errCh <- fmt.Errorf("failed to seek to head: %w", err)
+			// Send the log entry
+			select {
+			case logCh <- line:
+				s.logger.Debug("sent log line", "log", line)
+			case <-ctx.Done():
+				s.logger.Debug("context done while sending log")
 				return
 			}
 		}
 		
-		// Log the starting position for debugging
-		s.logger.Debug("journal position set", 
-			"follow", follow, 
-			"numLines", numLines)
-
-		// Process journal entries
-		for {
-			select {
-			case <-ctx.Done():
-				errCh <- ctx.Err()
-				return
-			default:
-				// Read the next entry
-				n, err := journal.Next()
-				if err != nil {
-					errCh <- fmt.Errorf("error reading journal: %w", err)
-					return
-				}
-
-				// If we've reached the end of the journal
-				if n == 0 {
-					if !follow {
-						s.logger.Debug("reached end of journal and not following, exiting")
-						return // We're done if not following
-					}
-					
-					s.logger.Debug("reached end of journal, waiting for new entries")
-					// Wait for new entries if following
-					waitResult := journal.Wait(1 * time.Second)
-					s.logger.Debug("journal wait returned", "result", waitResult)
-					
-					// Continue the loop regardless of wait result
-					// This ensures we don't get stuck if the wait behavior is inconsistent
-					continue
-				}
-
-				// Get the log message
-				message, err := journal.GetDataValue("MESSAGE")
-				if err != nil {
-					s.logger.Warn("failed to get message from journal entry", "error", err)
-					// Try to get the raw entry for debugging
-					entry, _ := journal.GetEntry()
-					if entry != nil {
-						s.logger.Debug("raw journal entry", "fields", len(entry.Fields))
-					}
-					continue
-				}
-
-				// Get timestamp
-				var timestamp time.Time
-				if realtime, err := journal.GetRealtimeUsec(); err == nil {
-					timestamp = time.Unix(int64(realtime/1000000), int64((realtime%1000000)*1000))
-				} else {
-					timestamp = time.Now()
-				}
-				
-				// Get priority if available
-				priority := ""
-				if prio, err := journal.GetDataValue("PRIORITY"); err == nil {
-					switch prio {
-					case "0", "1", "2":
-						priority = "EMERGENCY"
-					case "3":
-						priority = "ERROR"
-					case "4":
-						priority = "WARNING"
-					case "5":
-						priority = "NOTICE"
-					case "6":
-						priority = "INFO"
-					case "7":
-						priority = "DEBUG"
-					}
-				}
-				
-				// Format the log entry with timestamp, priority and message
-				var formattedLog string
-				if priority != "" {
-					formattedLog = fmt.Sprintf("[%s] [%s] %s", timestamp.Format(time.RFC3339), priority, message)
-				} else {
-					formattedLog = fmt.Sprintf("[%s] %s", timestamp.Format(time.RFC3339), message)
-				}
-				
-				// Get cursor for debugging
-				cursor, _ := journal.GetCursor()
-				s.logger.Debug("sending log entry", 
-					"log", formattedLog, 
-					"cursor", cursor)
-
-				// Send the log entry
-				select {
-				case logCh <- formattedLog:
-				case <-ctx.Done():
-					errCh <- ctx.Err()
-					return
-				}
-			}
+		// Check for scanner errors
+		if err := scanner.Err(); err != nil {
+			errCh <- fmt.Errorf("error reading journalctl output: %w", err)
+			return
 		}
+		
+		// Wait for command to finish
+		if err := cmd.Wait(); err != nil {
+			// Only report error if it's not due to context cancellation
+			if ctx.Err() == nil {
+				errCh <- fmt.Errorf("journalctl command failed: %w", err)
+			}
+			return
+		}
+		
+		s.logger.Debug("journalctl command completed successfully")
 	}()
 
 	return logCh, errCh
