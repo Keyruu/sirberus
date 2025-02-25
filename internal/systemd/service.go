@@ -405,14 +405,25 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 				return
 			}
 			
+			// Get current cursor position for debugging
+			cursor, _ := journal.GetCursor()
+			s.logger.Debug("journal tail position", "cursor", cursor)
+			
 			// Move back numLines entries
+			skipped := 0
 			for i := 0; i < numLines; i++ {
-				_, err = journal.Previous()
+				n, err := journal.Previous()
 				if err != nil {
-					s.logger.Warn("reached beginning of journal", "error", err)
+					errCh <- fmt.Errorf("failed to move to previous entry: %w", err)
+					return
+				}
+				if n == 0 {
+					s.logger.Debug("reached beginning of journal", "skipped", skipped)
 					break // Reached the beginning of the journal
 				}
+				skipped++
 			}
+			s.logger.Debug("moved back in journal", "entries", skipped)
 		} else {
 			// If numLines is 0, start from the beginning
 			if err := journal.SeekHead(); err != nil {
@@ -449,28 +460,23 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 					
 					s.logger.Debug("reached end of journal, waiting for new entries")
 					// Wait for new entries if following
-					waitResult := journal.Wait(time.Second)
-					if waitResult == sdjournal.SD_JOURNAL_NOP {
-						continue // No new entries yet
-					}
+					waitResult := journal.Wait(1 * time.Second)
+					s.logger.Debug("journal wait returned", "result", waitResult)
 					
-					// Try to get the next entry after waiting
-					n, err = journal.Next()
-					if err != nil {
-						errCh <- fmt.Errorf("error reading journal after wait: %w", err)
-						return
-					}
-					
-					// If still no entries, continue waiting
-					if n == 0 {
-						continue
-					}
+					// Continue the loop regardless of wait result
+					// This ensures we don't get stuck if the wait behavior is inconsistent
+					continue
 				}
 
 				// Get the log message
 				message, err := journal.GetDataValue("MESSAGE")
 				if err != nil {
 					s.logger.Warn("failed to get message from journal entry", "error", err)
+					// Try to get the raw entry for debugging
+					entry, _ := journal.GetEntry()
+					if entry != nil {
+						s.logger.Debug("raw journal entry", "fields", len(entry.Fields))
+					}
 					continue
 				}
 
@@ -509,7 +515,11 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 					formattedLog = fmt.Sprintf("[%s] %s", timestamp.Format(time.RFC3339), message)
 				}
 				
-				s.logger.Debug("sending log entry", "log", formattedLog)
+				// Get cursor for debugging
+				cursor, _ := journal.GetCursor()
+				s.logger.Debug("sending log entry", 
+					"log", formattedLog, 
+					"cursor", cursor)
 
 				// Send the log entry
 				select {

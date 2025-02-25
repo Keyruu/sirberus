@@ -180,6 +180,22 @@ func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 	// Send an initial event to confirm connection
 	c.SSEvent("info", fmt.Sprintf("Connected to log stream for %s", name))
 	c.Writer.Flush()
+	
+	// Check if the service exists before attempting to stream logs
+	_, err := h.service.GetUnitDetails(name)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.SSEvent("error", fmt.Sprintf("Service %s not found", name))
+			c.Writer.Flush()
+			return
+		}
+		h.logger.Error("failed to verify service exists", 
+			"service", name, 
+			"error", err)
+		c.SSEvent("error", fmt.Sprintf("Failed to verify service: %s", err.Error()))
+		c.Writer.Flush()
+		return
+	}
 
 	// Parse query parameters
 	follow := true
@@ -208,8 +224,28 @@ func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 	ctx, cancel := context.WithCancel(c.Request.Context())
 	defer cancel()
 
-	// Start streaming logs
-	logCh, errCh := h.service.StreamServiceLogs(ctx, name, follow, numLines)
+	// Add a timeout to the context to ensure we don't hang indefinitely
+	// This is separate from the client disconnect context
+	timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer timeoutCancel()
+	
+	// Combine the contexts - will cancel if either client disconnects or timeout occurs
+	combinedCtx, combinedCancel := context.WithCancel(ctx)
+	defer combinedCancel()
+	
+	// Monitor the timeout context in a goroutine
+	go func() {
+		<-timeoutCtx.Done()
+		if timeoutCtx.Err() == context.DeadlineExceeded {
+			h.logger.Warn("log streaming timeout reached", "service", name)
+			c.SSEvent("warning", "Log streaming timeout reached, please reconnect if needed")
+			c.Writer.Flush()
+			combinedCancel() // Cancel the combined context
+		}
+	}()
+
+	// Start streaming logs with the combined context
+	logCh, errCh := h.service.StreamServiceLogs(combinedCtx, name, follow, numLines)
 
 	h.logger.Info("started streaming logs",
 		"service", name,
