@@ -189,11 +189,20 @@ func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 
 	numLines := 100 // Default to 100 lines
 	if linesParam := c.Query("lines"); linesParam != "" {
-		if n, err := fmt.Sscanf(linesParam, "%d", &numLines); err != nil || n != 1 {
+		var n int
+		var parsedLines int
+		n, err := fmt.Sscanf(linesParam, "%d", &parsedLines)
+		if err != nil || n != 1 {
 			h.logger.Warn("invalid lines parameter", "value", linesParam)
-			numLines = 100
+		} else {
+			numLines = parsedLines
 		}
 	}
+	
+	h.logger.Info("log request parameters", 
+		"service", name,
+		"follow", follow, 
+		"lines", numLines)
 
 	// Create a context that will be canceled when the client disconnects
 	ctx, cancel := context.WithCancel(c.Request.Context())
@@ -208,16 +217,22 @@ func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 		"lines", numLines)
 
 	// Send logs to the client
+	logCount := 0
 	for {
 		select {
 		case log, ok := <-logCh:
 			if !ok {
 				h.logger.Info("log channel closed",
-					"service", name)
+					"service", name,
+					"total_logs_sent", logCount)
 				c.SSEvent("info", "Log stream ended")
 				c.Writer.Flush()
 				return
 			}
+			logCount++
+			h.logger.Debug("sending log to client", 
+				"service", name, 
+				"log_number", logCount)
 			c.SSEvent("log", log)
 			c.Writer.Flush()
 		case err, ok := <-errCh:
@@ -226,13 +241,15 @@ func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 			}
 			h.logger.Error("error streaming logs",
 				"service", name,
-				"error", err)
+				"error", err,
+				"total_logs_sent", logCount)
 			c.SSEvent("error", err.Error())
 			c.Writer.Flush()
 			return
 		case <-ctx.Done():
 			h.logger.Info("client disconnected from log stream",
-				"service", name)
+				"service", name,
+				"total_logs_sent", logCount)
 			return
 		}
 	}

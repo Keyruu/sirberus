@@ -397,31 +397,34 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 			return
 		}
 
-		// Seek to the end if we're following logs
-		if follow {
-			if err := journal.SeekTail(); err != nil {
-				errCh <- fmt.Errorf("failed to seek to tail: %w", err)
-				return
-			}
-			// Move back one entry to avoid missing the most recent log
-			_, err = journal.Previous()
-			if err != nil {
-				s.logger.Warn("failed to move to previous entry, might be empty journal", "error", err)
-			}
-		} else if numLines > 0 {
+		// Set up the journal position based on follow mode and numLines
+		if numLines > 0 {
 			// Seek to the end and then go back numLines entries
 			if err := journal.SeekTail(); err != nil {
 				errCh <- fmt.Errorf("failed to seek to tail: %w", err)
 				return
 			}
+			
 			// Move back numLines entries
 			for i := 0; i < numLines; i++ {
 				_, err = journal.Previous()
 				if err != nil {
+					s.logger.Warn("reached beginning of journal", "error", err)
 					break // Reached the beginning of the journal
 				}
 			}
+		} else {
+			// If numLines is 0, start from the beginning
+			if err := journal.SeekHead(); err != nil {
+				errCh <- fmt.Errorf("failed to seek to head: %w", err)
+				return
+			}
 		}
+		
+		// Log the starting position for debugging
+		s.logger.Debug("journal position set", 
+			"follow", follow, 
+			"numLines", numLines)
 
 		// Process journal entries
 		for {
@@ -440,15 +443,28 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 				// If we've reached the end of the journal
 				if n == 0 {
 					if !follow {
+						s.logger.Debug("reached end of journal and not following, exiting")
 						return // We're done if not following
 					}
 					
+					s.logger.Debug("reached end of journal, waiting for new entries")
 					// Wait for new entries if following
 					waitResult := journal.Wait(time.Second)
 					if waitResult == sdjournal.SD_JOURNAL_NOP {
 						continue // No new entries yet
 					}
-					continue
+					
+					// Try to get the next entry after waiting
+					n, err = journal.Next()
+					if err != nil {
+						errCh <- fmt.Errorf("error reading journal after wait: %w", err)
+						return
+					}
+					
+					// If still no entries, continue waiting
+					if n == 0 {
+						continue
+					}
 				}
 
 				// Get the log message
@@ -465,9 +481,35 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 				} else {
 					timestamp = time.Now()
 				}
-
-				// Format the log entry with timestamp and service name
-				formattedLog := fmt.Sprintf("[%s] %s", timestamp.Format(time.RFC3339), message)
+				
+				// Get priority if available
+				priority := ""
+				if prio, err := journal.GetDataValue("PRIORITY"); err == nil {
+					switch prio {
+					case "0", "1", "2":
+						priority = "EMERGENCY"
+					case "3":
+						priority = "ERROR"
+					case "4":
+						priority = "WARNING"
+					case "5":
+						priority = "NOTICE"
+					case "6":
+						priority = "INFO"
+					case "7":
+						priority = "DEBUG"
+					}
+				}
+				
+				// Format the log entry with timestamp, priority and message
+				var formattedLog string
+				if priority != "" {
+					formattedLog = fmt.Sprintf("[%s] [%s] %s", timestamp.Format(time.RFC3339), priority, message)
+				} else {
+					formattedLog = fmt.Sprintf("[%s] %s", timestamp.Format(time.RFC3339), message)
+				}
+				
+				s.logger.Debug("sending log entry", "log", formattedLog)
 
 				// Send the log entry
 				select {
