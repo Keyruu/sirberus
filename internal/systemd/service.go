@@ -10,6 +10,7 @@ import (
 
 	"github.com/Keyruu/sirberus/internal/types"
 	"github.com/coreos/go-systemd/v22/dbus"
+	"github.com/coreos/go-systemd/v22/sdjournal"
 )
 
 type SystemdService struct {
@@ -370,4 +371,116 @@ func (s *SystemdService) getServiceMetrics(ctx context.Context, unitName string)
 		CPUUsage:    cpuUsage,
 		MemoryUsage: memBytes,
 	}, nil
+}
+
+// StreamServiceLogs streams logs from a systemd service using the journal API
+// It returns a channel that will receive log entries and an error channel
+func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string, follow bool, numLines int) (<-chan string, <-chan error) {
+	logCh := make(chan string)
+	errCh := make(chan error, 1)
+
+	go func() {
+		defer close(logCh)
+		defer close(errCh)
+
+		// Open a new journal
+		journal, err := sdjournal.NewJournal()
+		if err != nil {
+			errCh <- fmt.Errorf("failed to open journal: %w", err)
+			return
+		}
+		defer journal.Close()
+
+		// Add filter for the specific unit
+		if err := journal.AddMatch("_SYSTEMD_UNIT=" + unitName); err != nil {
+			errCh <- fmt.Errorf("failed to add unit match: %w", err)
+			return
+		}
+
+		// Seek to the end if we're following logs
+		if follow {
+			if err := journal.SeekTail(); err != nil {
+				errCh <- fmt.Errorf("failed to seek to tail: %w", err)
+				return
+			}
+			// Move back one entry to avoid missing the most recent log
+			_, err = journal.Previous()
+			if err != nil {
+				s.logger.Warn("failed to move to previous entry, might be empty journal", "error", err)
+			}
+		} else if numLines > 0 {
+			// Seek to the end and then go back numLines entries
+			if err := journal.SeekTail(); err != nil {
+				errCh <- fmt.Errorf("failed to seek to tail: %w", err)
+				return
+			}
+			// Move back numLines entries
+			for i := 0; i < numLines; i++ {
+				_, err = journal.Previous()
+				if err != nil {
+					break // Reached the beginning of the journal
+				}
+			}
+		}
+
+		// Process journal entries
+		for {
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			default:
+				// Wait for new journal entries if following, otherwise just process what we have
+				if follow {
+					waitResult := journal.Wait(time.Second)
+					if waitResult == sdjournal.SD_JOURNAL_NOP {
+						continue // No new entries yet
+					}
+				}
+
+				// Read the next entry
+				n, err := journal.Next()
+				if err != nil {
+					errCh <- fmt.Errorf("error reading journal: %w", err)
+					return
+				}
+
+				// If we've reached the end of the journal
+				if n == 0 {
+					if !follow {
+						return // We're done if not following
+					}
+					continue // Wait for more entries if following
+				}
+
+				// Get the log message
+				message, err := journal.GetDataValue("MESSAGE")
+				if err != nil {
+					s.logger.Warn("failed to get message from journal entry", "error", err)
+					continue
+				}
+
+				// Get timestamp
+				var timestamp time.Time
+				if realtime, err := journal.GetRealtimeUsec(); err == nil {
+					timestamp = time.Unix(int64(realtime/1000000), int64((realtime%1000000)*1000))
+				} else {
+					timestamp = time.Now()
+				}
+
+				// Format the log entry
+				formattedLog := fmt.Sprintf("%s: %s", timestamp.Format(time.RFC3339), message)
+
+				// Send the log entry
+				select {
+				case logCh <- formattedLog:
+				case <-ctx.Done():
+					errCh <- ctx.Err()
+					return
+				}
+			}
+		}
+	}()
+
+	return logCh, errCh
 }

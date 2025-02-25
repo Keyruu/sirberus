@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -34,6 +35,7 @@ func (h *SystemdHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/services", h.listServices)
 	rg.GET("/services/:name", h.getService)
 	rg.GET("/services/:name/stream", h.streamService)
+	rg.GET("/services/:name/logs", h.streamServiceLogs)
 	rg.POST("/services/:name/start", h.startService)
 	rg.POST("/services/:name/stop", h.stopService)
 	rg.POST("/services/:name/restart", h.restartService)
@@ -167,6 +169,66 @@ func (h *SystemdHandler) sendServiceDetails(c *gin.Context, name string) error {
 
 	c.SSEvent("message", details)
 	return nil
+}
+
+// streamServiceLogs streams logs from a systemd service using SSE
+func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
+	name := getServiceName(c.Param("name"))
+	setupSSE(c)
+
+	// Parse query parameters
+	follow := true
+	if followParam := c.Query("follow"); followParam == "false" {
+		follow = false
+	}
+
+	numLines := 100 // Default to 100 lines
+	if linesParam := c.Query("lines"); linesParam != "" {
+		if n, err := fmt.Sscanf(linesParam, "%d", &numLines); err != nil || n != 1 {
+			h.logger.Warn("invalid lines parameter", "value", linesParam)
+			numLines = 100
+		}
+	}
+
+	// Create a context that will be canceled when the client disconnects
+	ctx, cancel := context.WithCancel(c.Request.Context())
+	defer cancel()
+
+	// Start streaming logs
+	logCh, errCh := h.service.StreamServiceLogs(ctx, name, follow, numLines)
+
+	h.logger.Info("started streaming logs",
+		"service", name,
+		"follow", follow,
+		"lines", numLines)
+
+	// Send logs to the client
+	for {
+		select {
+		case log, ok := <-logCh:
+			if !ok {
+				h.logger.Info("log channel closed",
+					"service", name)
+				return
+			}
+			c.SSEvent("log", log)
+			c.Writer.Flush()
+		case err, ok := <-errCh:
+			if !ok {
+				continue
+			}
+			h.logger.Error("error streaming logs",
+				"service", name,
+				"error", err)
+			c.SSEvent("error", err.Error())
+			c.Writer.Flush()
+			return
+		case <-ctx.Done():
+			h.logger.Info("client disconnected from log stream",
+				"service", name)
+			return
+		}
+	}
 }
 
 func (h *SystemdHandler) getService(c *gin.Context) {
