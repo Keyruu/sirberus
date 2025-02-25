@@ -384,8 +384,8 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 		defer close(logCh)
 		defer close(errCh)
 
-		// Build journalctl command
-		args := []string{"-u", unitName}
+		// Build journalctl command with more verbose output
+		args := []string{"-u", unitName, "--no-pager"}
 		
 		if follow {
 			args = append(args, "-f")
@@ -393,15 +393,21 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 		
 		if numLines > 0 {
 			args = append(args, "-n", fmt.Sprintf("%d", numLines))
+		} else {
+			// If numLines is 0, explicitly set to show all logs
+			args = append(args, "--no-tail")
 		}
 		
-		// Add output formatting
-		args = append(args, "-o", "short-iso")
+		// Add output formatting - use short-precise-monotonic for better timestamp precision
+		args = append(args, "-o", "short-precise")
 		
 		s.logger.Debug("executing journalctl command", "args", args)
 		
-		// Create command with context
+		// Create command with context and run as root if needed
 		cmd := exec.CommandContext(ctx, "journalctl", args...)
+		
+		// Set buffer size for scanner to handle larger log lines
+		const maxScanTokenSize = 1024 * 1024 // 1MB buffer
 		
 		// Get stdout pipe
 		stdout, err := cmd.StdoutPipe()
@@ -436,8 +442,39 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 			}
 		}()
 		
-		// Read stdout line by line
+		// Read stdout line by line with larger buffer
 		scanner := bufio.NewScanner(stdout)
+		// Set larger buffer for scanner
+		buf := make([]byte, maxScanTokenSize)
+		scanner.Buffer(buf, maxScanTokenSize)
+		
+		// Track if we've sent any logs
+		logsSent := 0
+		
+		// Start a timer to report if no logs are being sent
+		noLogsTimer := time.NewTimer(5 * time.Second)
+		defer noLogsTimer.Stop()
+		
+		// Start a goroutine to monitor for no logs
+		go func() {
+			select {
+			case <-noLogsTimer.C:
+				if logsSent == 0 {
+					s.logger.Warn("no logs received from journalctl after 5 seconds", 
+						"unit", unitName, 
+						"args", strings.Join(args, " "))
+					
+					// Try to send a diagnostic message
+					select {
+					case logCh <- "WARNING: No logs received from journalctl after 5 seconds. This may indicate permission issues or that the service has no logs.":
+					case <-ctx.Done():
+					}
+				}
+			case <-ctx.Done():
+				return
+			}
+		}()
+		
 		for scanner.Scan() {
 			line := scanner.Text()
 			
@@ -446,12 +483,21 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 				continue
 			}
 			
+			// Reset the timer when we get logs
+			if logsSent == 0 {
+				noLogsTimer.Stop()
+			}
+			
+			logsSent++
+			
 			// Send the log entry
 			select {
 			case logCh <- line:
-				s.logger.Debug("sent log line", "log", line)
+				if logsSent <= 5 || logsSent%100 == 0 {
+					s.logger.Debug("sent log line", "log", line, "count", logsSent)
+				}
 			case <-ctx.Done():
-				s.logger.Debug("context done while sending log")
+				s.logger.Debug("context done while sending log", "logs_sent", logsSent)
 				return
 			}
 		}
@@ -466,12 +512,39 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 		if err := cmd.Wait(); err != nil {
 			// Only report error if it's not due to context cancellation
 			if ctx.Err() == nil {
+				s.logger.Error("journalctl command failed", 
+					"error", err, 
+					"logs_sent", logsSent)
 				errCh <- fmt.Errorf("journalctl command failed: %w", err)
+			} else {
+				s.logger.Debug("journalctl command canceled", 
+					"logs_sent", logsSent)
 			}
 			return
 		}
 		
-		s.logger.Debug("journalctl command completed successfully")
+		if logsSent == 0 {
+			s.logger.Warn("journalctl command completed without sending any logs",
+				"unit", unitName,
+				"args", strings.Join(args, " "))
+			
+			// Try running a simpler command to check if journalctl works at all
+			testCmd := exec.Command("journalctl", "--version")
+			testOutput, testErr := testCmd.CombinedOutput()
+			if testErr != nil {
+				s.logger.Error("journalctl test command failed", "error", testErr)
+				errCh <- fmt.Errorf("journalctl test command failed: %w", testErr)
+			} else {
+				s.logger.Debug("journalctl test command succeeded", "output", string(testOutput))
+				// Send a diagnostic message
+				select {
+				case logCh <- "WARNING: No logs were found for this service. The service may not have generated any logs yet.":
+				case <-ctx.Done():
+				}
+			}
+		} else {
+			s.logger.Debug("journalctl command completed successfully", "logs_sent", logsSent)
+		}
 	}()
 
 	return logCh, errCh

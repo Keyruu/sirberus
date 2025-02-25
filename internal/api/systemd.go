@@ -246,9 +246,11 @@ func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 				return
 			}
 			logCount++
-			h.logger.Debug("sending log to client", 
-				"service", name, 
-				"log_number", logCount)
+			if logCount <= 5 || logCount%100 == 0 {
+				h.logger.Debug("sending log to client", 
+					"service", name, 
+					"log_number", logCount)
+			}
 			c.SSEvent("log", log)
 			c.Writer.Flush()
 		case err, ok := <-errCh:
