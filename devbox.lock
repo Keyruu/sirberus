@@ -1,0 +1,149 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "go@1.23": {
+      "last_modified": "2025-02-23T09:42:26Z",
+      "resolved": "github:NixOS/nixpkgs/2d068ae5c6516b2d04562de50a58c682540de9bf#go",
+      "source": "devbox-search",
+      "version": "1.23.6",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/yjqrp3d93mxa2g80j57whyk55xwxgl7r-go-1.23.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/yjqrp3d93mxa2g80j57whyk55xwxgl7r-go-1.23.6"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/8998mrpahiciqy699yxfwaw29r89pfrm-go-1.23.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/8998mrpahiciqy699yxfwaw29r89pfrm-go-1.23.6"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/65s6ymzbxsydbka49gr3jsv0lnybbzyc-go-1.23.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/65s6ymzbxsydbka49gr3jsv0lnybbzyc-go-1.23.6"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/8zgc91q1igzgmg36mglxrk8qa1r2dvsd-go-1.23.6",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/8zgc91q1igzgmg36mglxrk8qa1r2dvsd-go-1.23.6"
+        }
+      }
+    },
+    "pnpm@latest": {
+      "last_modified": "2025-02-17T23:19:04Z",
+      "resolved": "github:NixOS/nixpkgs/f0295845e58ada369322524631821b01c0db13a7#pnpm",
+      "source": "devbox-search",
+      "version": "10.4.1",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/p00c0k1scnbc1zzvx25wkqn9ifya82nz-pnpm-10.4.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/p00c0k1scnbc1zzvx25wkqn9ifya82nz-pnpm-10.4.1"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/k7jvrgqchjhhl3w4zfrx68ac7yx01pbm-pnpm-10.4.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/k7jvrgqchjhhl3w4zfrx68ac7yx01pbm-pnpm-10.4.1"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/j1pjnw4rcfy60w2aj8hyvqwn5cfdaxwg-pnpm-10.4.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/j1pjnw4rcfy60w2aj8hyvqwn5cfdaxwg-pnpm-10.4.1"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/xvw0w2mi1m0xdw6bxfqhw8xiaz9gpg6h-pnpm-10.4.1",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/xvw0w2mi1m0xdw6bxfqhw8xiaz9gpg6h-pnpm-10.4.1"
+        }
+      }
+    },
+    "tygo@latest": {
+      "last_modified": "2025-02-07T11:26:36Z",
+      "resolved": "github:NixOS/nixpkgs/d98abf5cf5914e5e4e9d57205e3af55ca90ffc1d#tygo",
+      "source": "devbox-search",
+      "version": "0.2.17",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/bkiwi635xya6zia9r96xwh9hr9hai60m-tygo-0.2.17",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/bkiwi635xya6zia9r96xwh9hr9hai60m-tygo-0.2.17"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/yx96imnsdc3qcpdcj0h34468dim6c03m-tygo-0.2.17",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/yx96imnsdc3qcpdcj0h34468dim6c03m-tygo-0.2.17"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/0h63alyqi56ka4pknxsbgva1hqknvkra-tygo-0.2.17",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/0h63alyqi56ka4pknxsbgva1hqknvkra-tygo-0.2.17"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/azii4br3g581jiq9d2lr3hnid7zcgzi0-tygo-0.2.17",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/azii4br3g581jiq9d2lr3hnid7zcgzi0-tygo-0.2.17"
+        }
+      }
+    }
+  }
+}

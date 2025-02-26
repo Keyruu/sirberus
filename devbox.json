@@ -1,0 +1,15 @@
+{
+  "packages": [
+    "go@1.23",
+    "tygo@latest",
+    "pnpm@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo 'Devbox environment initialized for Sirberus'"
+    ],
+    "scripts": {
+      "tygo": "tygo generate && echo '✅ TypeScript types successfully generated at web/src/generated/types.ts'"
+    }
+  }
+}
