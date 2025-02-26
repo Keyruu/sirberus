@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Keyruu/sirberus/internal/api"
@@ -31,7 +32,6 @@ func main() {
 		logger.Error("failed to create systemd handler", "error", err)
 		os.Exit(1)
 	}
-	defer systemdHandler.Close()
 
 	// Register API routes first
 	apiGroup := router.Group("/api")
@@ -47,8 +47,9 @@ func main() {
 
 	// Serve static files for any non-API routes
 	router.NoRoute(func(c *gin.Context) {
-		if c.Request.URL.Path[:4] != "/api" {
-			c.FileFromFS(c.Request.URL.Path, http.FS(assetsFS))
+		path := c.Request.URL.Path
+		if !strings.HasPrefix(path, "/api") {
+			c.FileFromFS(path, http.FS(assetsFS))
 			return
 		}
 		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
