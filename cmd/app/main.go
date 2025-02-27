@@ -13,7 +13,6 @@ import (
 )
 
 func main() {
-	// Initialize logger with structured output
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
@@ -21,31 +20,32 @@ func main() {
 
 	port := ":9733"
 
-	// Create gin router
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
 
-	// Initialize systemd handler
 	systemdHandler, err := api.NewSystemdHandler(logger)
 	if err != nil {
 		logger.Error("failed to create systemd handler", "error", err)
 		os.Exit(1)
 	}
 
-	// Register API routes first
+	containerHandler := api.NewContainerHandler(logger)
+
 	apiGroup := router.Group("/api")
+
 	systemdGroup := apiGroup.Group("/systemd")
 	systemdHandler.RegisterRoutes(systemdGroup)
 
-	// Setup static file serving
+	containerGroup := apiGroup.Group("/container")
+	containerHandler.RegisterRoutes(containerGroup)
+
 	assetsFS, err := web.AssetsFS()
 	if err != nil {
 		logger.Error("failed to create assets file system", "error", err)
 		os.Exit(1)
 	}
 
-	// Serve static files for any non-API routes
 	router.NoRoute(func(c *gin.Context) {
 		path := c.Request.URL.Path
 		if !strings.HasPrefix(path, "/api") {
@@ -55,8 +55,8 @@ func main() {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 	})
 
-	logger.Info("🚀 Starting server on port", "port", port)
-	logger.Info("👂 Listening for incoming requests...")
+	logger.Info("starting server on port", "port", port)
+	logger.Info("listening for incoming requests...")
 
 	server := &http.Server{
 		Addr:         port,

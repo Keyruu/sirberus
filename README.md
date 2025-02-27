@@ -41,7 +41,7 @@ Sirberus is a unified control plane for managing systemd services and containers
 
 - Go 1.23 or higher
 - Node.js and pnpm
-- Docker (optional, for container deployment)
+- Docker or Podman (for container management)
 
 ## Installation
 
@@ -61,6 +61,16 @@ Sirberus is a unified control plane for managing systemd services and containers
    cd web
    pnpm install
    ```
+
+## Configuration
+
+### Environment Variables
+
+Sirberus can be configured using the following environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DOCKER_HOST` | Docker/Podman socket URL | Auto-detected (`unix:///var/run/docker.sock`, `unix:///run/podman/podman.sock`, or `unix:///run/user/1000/podman/podman.sock`) |
 
 ## Development
 
@@ -97,6 +107,24 @@ pnpm dev
    ```bash
    go build -o sirberus cmd/app/main.go
    ```
+
+## API Endpoints
+
+Sirberus provides a RESTful API for managing systemd services and containers.
+
+### Systemd Services
+
+- `GET /api/systemd/services` - List all systemd services
+- `GET /api/systemd/services/:name` - Get details of a specific service
+- `GET /api/systemd/services/:name/stream` - Stream service status updates
+- `GET /api/systemd/services/:name/logs` - Stream service logs
+- `POST /api/systemd/services/:name/start` - Start a service
+- `POST /api/systemd/services/:name/stop` - Stop a service
+- `POST /api/systemd/services/:name/restart` - Restart a service
+
+### Containers
+
+- `GET /api/container/containers` - List all containers
 
 ## License
 
