@@ -1,0 +1,25 @@
+Keep this folder structure in mind:
+├── app
+├── cmd
+│   └── app
+│       └── main.go
+├── go.mod
+├── go.sum
+├── internal
+│   ├── api
+│   ├── container
+│   ├── frontend
+│   ├── systemd
+│   └── types
+└── web
+    ├── README.md
+    ├── components.json
+    ├── dist
+    │   ├── assets
+    │   │   ├── index-CfGxqOmn.js
+    │   │   └── index-Co_zO5e0.css
+    │   ├── index.html
+    │   └── vite.svg
+    ├── embed.go
+    ├── eslint.config.js
+    ├── index.html

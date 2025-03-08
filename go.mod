@@ -27,6 +27,7 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/godbus/dbus/v5 v5.0.4 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
@@ -38,6 +39,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/samber/slog-gin v1.14.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect

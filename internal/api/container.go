@@ -24,7 +24,7 @@ func NewContainerHandler(logger *slog.Logger) *ContainerHandler {
 }
 
 func (h *ContainerHandler) RegisterRoutes(rg *gin.RouterGroup) {
-	rg.GET("/containers", h.listContainers)
+	rg.GET("", h.listContainers)
 }
 
 func (h *ContainerHandler) listContainers(c *gin.Context) {

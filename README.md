@@ -130,6 +130,25 @@ Sirberus provides a RESTful API for managing systemd services and containers.
 
 This project is licensed under the GNU Affero General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
+## Testing
+
+### Systemd Tests
+
+The systemd package includes tests that use the actual system instead of mocks. These tests interact with real systemd services.
+
+**Requirements:**
+- Linux operating system with systemd
+- Root privileges (sudo) for most tests
+- Go 1.23 or later
+
+```bash
+# Run as root to enable all tests
+sudo go test -v ./internal/systemd/...
+
+# Run without root (some tests will be skipped)
+go test -v ./internal/systemd/...
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

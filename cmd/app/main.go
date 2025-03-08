@@ -10,6 +10,7 @@ import (
 	"github.com/Keyruu/sirberus/internal/api"
 	"github.com/Keyruu/sirberus/web"
 	"github.com/gin-gonic/gin"
+	sloggin "github.com/samber/slog-gin"
 )
 
 func main() {
@@ -22,6 +23,7 @@ func main() {
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
+	router.Use(sloggin.New(logger))
 	router.Use(gin.Recovery())
 
 	systemdHandler, err := api.NewSystemdHandler(logger)

@@ -32,13 +32,13 @@ func NewSystemdHandler(logger *slog.Logger) (*SystemdHandler, error) {
 }
 
 func (h *SystemdHandler) RegisterRoutes(rg *gin.RouterGroup) {
-	rg.GET("/services", h.listServices)
-	rg.GET("/services/:name", h.getService)
-	rg.GET("/services/:name/stream", h.streamService)
-	rg.GET("/services/:name/logs", h.streamServiceLogs)
-	rg.POST("/services/:name/start", h.startService)
-	rg.POST("/services/:name/stop", h.stopService)
-	rg.POST("/services/:name/restart", h.restartService)
+	rg.GET("", h.listServices)
+	rg.GET("/:name", h.getService)
+	rg.GET("/:name/stream", h.streamService)
+	rg.GET("/:name/logs", h.streamServiceLogs)
+	rg.POST("/:name/start", h.startService)
+	rg.POST("/:name/stop", h.stopService)
+	rg.POST("/:name/restart", h.restartService)
 }
 
 func (h *SystemdHandler) handleError(c *gin.Context, err error, name string, operation string) bool {
