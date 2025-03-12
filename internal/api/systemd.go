@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Keyruu/sirberus/internal/systemd"
+	"github.com/Keyruu/sirberus/internal/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -47,8 +48,8 @@ func (h *SystemdHandler) handleError(c *gin.Context, err error, name string, ope
 	}
 
 	if strings.Contains(err.Error(), "not found") {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": fmt.Sprintf("Service %s not found", name),
+		c.JSON(http.StatusNotFound, types.ErrorResponse{
+			Error: fmt.Sprintf("Service %s not found", name),
 		})
 		return true
 	}
@@ -56,8 +57,8 @@ func (h *SystemdHandler) handleError(c *gin.Context, err error, name string, ope
 	h.logger.Error(fmt.Sprintf("failed to %s service", operation),
 		"service", name,
 		"error", err)
-	c.JSON(http.StatusInternalServerError, gin.H{
-		"error": err.Error(),
+	c.JSON(http.StatusInternalServerError, types.ErrorResponse{
+		Error: err.Error(),
 	})
 	return true
 }
@@ -71,8 +72,8 @@ func (h *SystemdHandler) startService(c *gin.Context) {
 
 	h.logger.Info("successfully started service",
 		"service", name)
-	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("Service %s started successfully", name),
+	c.JSON(http.StatusOK, types.Message{
+		Message: fmt.Sprintf("Service %s started successfully", name),
 	})
 }
 
@@ -85,8 +86,8 @@ func (h *SystemdHandler) stopService(c *gin.Context) {
 
 	h.logger.Info("successfully stopped service",
 		"service", name)
-	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("Service %s stopped successfully", name),
+	c.JSON(http.StatusOK, types.Message{
+		Message: fmt.Sprintf("Service %s stopped successfully", name),
 	})
 }
 
@@ -99,8 +100,8 @@ func (h *SystemdHandler) restartService(c *gin.Context) {
 
 	h.logger.Info("successfully restarted service",
 		"service", name)
-	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("Service %s restarted successfully", name),
+	c.JSON(http.StatusOK, types.Message{
+		Message: fmt.Sprintf("Service %s restarted successfully", name),
 	})
 }
 
@@ -156,17 +157,29 @@ func (h *SystemdHandler) sendServiceDetails(c *gin.Context, name string) error {
 	details, err := h.service.GetUnitDetails(name)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			c.SSEvent("error", fmt.Sprintf("Service %s not found", name))
+			event := types.SSEvent{
+				Type:    "error",
+				Content: fmt.Sprintf("Service %s not found", name),
+			}
+			c.SSEvent(event.Type, event.Content)
 			return err
 		}
 		h.logger.Error("failed to get service details",
 			"service", name,
 			"error", err)
-		c.SSEvent("error", err.Error())
+		event := types.SSEvent{
+			Type:    "error",
+			Content: err.Error(),
+		}
+		c.SSEvent(event.Type, event.Content)
 		return err
 	}
 
-	c.SSEvent("message", details)
+	event := types.SSEvent{
+		Type:    "message",
+		Content: details,
+	}
+	c.SSEvent(event.Type, event.Content)
 	return nil
 }
 
@@ -226,7 +239,11 @@ func (h *SystemdHandler) handleLogStreaming(
 				h.logger.Info("log channel closed", "service", serviceName)
 				return
 			}
-			c.SSEvent("log", log)
+			logEvent := types.SSEvent{
+				Type:    "log",
+				Content: log,
+			}
+			c.SSEvent(logEvent.Type, logEvent.Content)
 			c.Writer.Flush()
 		case err, ok := <-errCh:
 			if !ok {
@@ -235,7 +252,11 @@ func (h *SystemdHandler) handleLogStreaming(
 			h.logger.Error("error streaming logs",
 				"service", serviceName,
 				"error", err)
-			c.SSEvent("error", err.Error())
+			errorEvent := types.SSEvent{
+				Type:    "error",
+				Content: err.Error(),
+			}
+			c.SSEvent(errorEvent.Type, errorEvent.Content)
 			c.Writer.Flush()
 			return
 		case <-ctx.Done():
@@ -262,8 +283,8 @@ func (h *SystemdHandler) listServices(c *gin.Context) {
 	services, err := h.service.ListUnits()
 	if err != nil {
 		h.logger.Error("failed to list services", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+		c.JSON(http.StatusInternalServerError, types.ErrorResponse{
+			Error: err.Error(),
 		})
 		return
 	}

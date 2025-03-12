@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Keyruu/sirberus/internal/container"
+	"github.com/Keyruu/sirberus/internal/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -33,8 +34,8 @@ func (h *ContainerHandler) listContainers(c *gin.Context) {
 	containerList, err := h.service.ListContainers(c.Request.Context())
 	if err != nil {
 		h.logger.Error("failed to list containers", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+		c.JSON(http.StatusInternalServerError, types.ErrorResponse{
+			Error: err.Error(),
 		})
 		return
 	}

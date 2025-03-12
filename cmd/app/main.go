@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Keyruu/sirberus/internal/api"
+	"github.com/Keyruu/sirberus/internal/types"
 	"github.com/Keyruu/sirberus/web"
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
@@ -54,7 +55,9 @@ func main() {
 			c.FileFromFS(path, http.FS(assetsFS))
 			return
 		}
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+		c.JSON(http.StatusNotFound, types.ErrorResponse{
+			Error: "Not found",
+		})
 	})
 
 	logger.Info("starting server on port", "port", port)
