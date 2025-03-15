@@ -1,0 +1,376 @@
+basePath: /api
+definitions:
+  Container:
+    properties:
+      command:
+        description: Command running in the container
+        type: string
+      cpuUsage:
+        description: CPU usage in nanoseconds
+        type: number
+      created:
+        description: Creation time
+        type: string
+      id:
+        description: Short container ID
+        type: string
+      image:
+        description: Container image
+        type: string
+      isRunning:
+        description: Whether the container is currently running
+        type: boolean
+      memoryUsage:
+        description: Memory usage in bytes
+        type: integer
+      name:
+        description: Container name
+        type: string
+      ports:
+        description: Exposed ports
+        type: string
+      size:
+        description: Container size
+        type: string
+      status:
+        description: Container status
+        type: string
+    type: object
+  ContainerList:
+    properties:
+      containers:
+        description: List of containers
+        items:
+          $ref: '#/definitions/Container'
+        type: array
+      count:
+        description: Total count of containers
+        type: integer
+    type: object
+  ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  Message:
+    properties:
+      message:
+        type: string
+    type: object
+  SSEvent:
+    properties:
+      content: {}
+    type: object
+  SystemdService:
+    properties:
+      activeState:
+        description: Active state (e.g., "active", "inactive")
+        type: string
+      cpuUsage:
+        description: CPU usage in nanoseconds
+        type: number
+      description:
+        description: Service description
+        type: string
+      loadState:
+        description: Load state (e.g., "loaded", "not-found")
+        type: string
+      memoryUsage:
+        description: Memory usage in bytes
+        type: integer
+      name:
+        description: Service name
+        type: string
+      subState:
+        description: Sub state (e.g., "running", "dead")
+        type: string
+    type: object
+  SystemdServiceDetails:
+    properties:
+      cGroup:
+        description: Control group path
+        type: string
+      cpuTimeNSec:
+        description: CPU time in nanoseconds
+        type: integer
+      docs:
+        description: Documentation URLs
+        items:
+          type: string
+        type: array
+      dropIn:
+        description: Drop-in configuration paths
+        items:
+          type: string
+        type: array
+      fragmentPath:
+        description: Path to the unit file
+        type: string
+      invocation:
+        description: Invocation ID
+        type: string
+      ioReadBytes:
+        description: Bytes read from disk
+        type: integer
+      ioWriteBytes:
+        description: Bytes written to disk
+        type: integer
+      ipEgressBytes:
+        description: Bytes sent over IP
+        type: integer
+      ipIngressBytes:
+        description: Bytes received over IP
+        type: integer
+      mainPID:
+        description: Main process ID
+        type: integer
+      mainProcess:
+        description: Main process command
+        type: string
+      memoryPeak:
+        description: Peak memory usage in bytes
+        type: integer
+      processes:
+        description: List of processes
+        items:
+          type: string
+        type: array
+      service:
+        $ref: '#/definitions/SystemdService'
+      since:
+        description: Timestamp when the service was activated (RFC3339 format)
+        type: string
+      tasks:
+        description: Current number of tasks
+        type: integer
+      tasksLimit:
+        description: Maximum number of tasks allowed
+        type: integer
+      triggeredBy:
+        description: Units that triggered this service
+        items:
+          type: string
+        type: array
+    type: object
+  SystemdServiceList:
+    properties:
+      count:
+        type: integer
+      services:
+        items:
+          $ref: '#/definitions/SystemdService'
+        type: array
+    type: object
+info:
+  contact: {}
+  description: API for managing systemd services and containers
+  title: Sirberus API
+  version: "1.0"
+paths:
+  /container:
+    get:
+      description: Get a list of all containers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ContainerList'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: List containers
+      tags:
+      - containers
+  /systemd:
+    get:
+      description: Get a list of all systemd services
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SystemdServiceList'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: List systemd services
+      tags:
+      - systemd
+  /systemd/{name}:
+    get:
+      description: Get detailed information about a specific systemd service
+      parameters:
+      - description: Service name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SystemdServiceDetails'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Get systemd service details
+      tags:
+      - systemd
+  /systemd/{name}/logs:
+    get:
+      description: Stream logs from a systemd service
+      parameters:
+      - description: Service name
+        in: path
+        name: name
+        required: true
+        type: string
+      - default: true
+        description: Follow logs in real-time
+        in: query
+        name: follow
+        type: boolean
+      - default: 100
+        description: Number of log lines to return
+        in: query
+        name: lines
+        type: integer
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SSEvent'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/SSEvent'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/SSEvent'
+      summary: Stream service logs
+      tags:
+      - systemd
+  /systemd/{name}/restart:
+    post:
+      description: Restart a systemd service
+      parameters:
+      - description: Service name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Message'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Restart service
+      tags:
+      - systemd
+  /systemd/{name}/start:
+    post:
+      description: Start a systemd service
+      parameters:
+      - description: Service name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Message'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Start service
+      tags:
+      - systemd
+  /systemd/{name}/stop:
+    post:
+      description: Stop a systemd service
+      parameters:
+      - description: Service name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Message'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Stop service
+      tags:
+      - systemd
+  /systemd/{name}/stream:
+    get:
+      description: Stream real-time updates about a systemd service
+      parameters:
+      - description: Service name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SSEvent'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/SSEvent'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/SSEvent'
+      summary: Stream service updates
+      tags:
+      - systemd
+swagger: "2.0"

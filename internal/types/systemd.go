@@ -15,7 +15,7 @@ type SystemdService struct {
 	CPUUsage float64 `json:"cpuUsage"`
 	// Memory usage in bytes
 	MemoryUsage uint64 `json:"memoryUsage"`
-}
+} // @name SystemdService
 
 type SystemdServiceDetails struct {
 	Service SystemdService `json:"service"`
@@ -55,9 +55,9 @@ type SystemdServiceDetails struct {
 	FragmentPath string `json:"fragmentPath"`
 	// List of processes
 	Processes []string `json:"processes"`
-}
+} // @name SystemdServiceDetails
 
 type SystemdServiceList struct {
 	Services []SystemdService `json:"services"`
 	Count    int              `json:"count"`
-}
+} // @name SystemdServiceList

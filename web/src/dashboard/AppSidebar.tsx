@@ -10,139 +10,28 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
-	SidebarRail,
+	SidebarRail
 } from '@/components/ui/sidebar';
-import { VersionSwitcher } from '@/dashboard/VersionSwitcher.tsx';
 import { SearchForm } from '@/dashboard/SearchForm.tsx';
+import { Cog, Container, MonitorCog } from 'lucide-react';
 
 // This is sample data.
 const data = {
-	versions: ['1.0.1', '1.1.0-alpha', '2.0.0-beta1'],
-	navMain: [
+	sidebar: [
 		{
-			title: 'Getting Started',
+			title: 'Systemd',
 			url: '#',
-			items: [
-				{
-					title: 'Installation',
-					url: '#',
-				},
-				{
-					title: 'Project Structure',
-					url: '#',
-				},
-			],
+			icon: MonitorCog,
 		},
 		{
-			title: 'Building Your Application',
+			title: 'Container',
 			url: '#',
-			items: [
-				{
-					title: 'Routing',
-					url: '#',
-				},
-				{
-					title: 'Data Fetching',
-					url: '#',
-					isActive: true,
-				},
-				{
-					title: 'Rendering',
-					url: '#',
-				},
-				{
-					title: 'Caching',
-					url: '#',
-				},
-				{
-					title: 'Styling',
-					url: '#',
-				},
-				{
-					title: 'Optimizing',
-					url: '#',
-				},
-				{
-					title: 'Configuring',
-					url: '#',
-				},
-				{
-					title: 'Testing',
-					url: '#',
-				},
-				{
-					title: 'Authentication',
-					url: '#',
-				},
-				{
-					title: 'Deploying',
-					url: '#',
-				},
-				{
-					title: 'Upgrading',
-					url: '#',
-				},
-				{
-					title: 'Examples',
-					url: '#',
-				},
-			],
+			icon: Container,
 		},
 		{
-			title: 'API Reference',
+			title: 'Settings',
 			url: '#',
-			items: [
-				{
-					title: 'Components',
-					url: '#',
-				},
-				{
-					title: 'File Conventions',
-					url: '#',
-				},
-				{
-					title: 'Functions',
-					url: '#',
-				},
-				{
-					title: 'next.config.js Options',
-					url: '#',
-				},
-				{
-					title: 'CLI',
-					url: '#',
-				},
-				{
-					title: 'Edge Runtime',
-					url: '#',
-				},
-			],
-		},
-		{
-			title: 'Architecture',
-			url: '#',
-			items: [
-				{
-					title: 'Accessibility',
-					url: '#',
-				},
-				{
-					title: 'Fast Refresh',
-					url: '#',
-				},
-				{
-					title: 'Next.js Compiler',
-					url: '#',
-				},
-				{
-					title: 'Supported Browsers',
-					url: '#',
-				},
-				{
-					title: 'Turbopack',
-					url: '#',
-				},
-			],
+			icon: Cog,
 		},
 	],
 };
@@ -151,27 +40,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 	return (
 		<Sidebar {...props}>
 			<SidebarHeader>
-				<VersionSwitcher versions={data.versions} defaultVersion={data.versions[0]} />
 				<SearchForm />
 			</SidebarHeader>
 			<SidebarContent>
 				{/* We create a SidebarGroup for each parent. */}
-				{data.navMain.map(item => (
-					<SidebarGroup key={item.title}>
-						<SidebarGroupLabel>{item.title}</SidebarGroupLabel>
-						<SidebarGroupContent>
+				<SidebarGroup key="main">
+					<SidebarGroupLabel>Menu</SidebarGroupLabel>
+					<SidebarGroupContent>
+						{data.sidebar.map(item => (
 							<SidebarMenu>
-								{item.items.map(item => (
-									<SidebarMenuItem key={item.title}>
-										<SidebarMenuButton asChild isActive={item.isActive}>
-											<a href={item.url}>{item.title}</a>
-										</SidebarMenuButton>
-									</SidebarMenuItem>
-								))}
+								<SidebarMenuItem key={item.title}>
+									<SidebarMenuButton asChild>
+										<a href={item.url}>
+											<item.icon />
+											<span>{item.title}</span>
+										</a>
+									</SidebarMenuButton>
+								</SidebarMenuItem>
 							</SidebarMenu>
-						</SidebarGroupContent>
-					</SidebarGroup>
-				))}
+						))}
+					</SidebarGroupContent>
+				</SidebarGroup>
 			</SidebarContent>
 			<SidebarRail />
 		</Sidebar>

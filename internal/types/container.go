@@ -27,11 +27,11 @@ type Container struct {
 	CPUUsage float64 `json:"cpuUsage"`
 	// Memory usage in bytes
 	MemoryUsage uint64 `json:"memoryUsage"`
-}
+} // @name Container
 
 type ContainerList struct {
 	// List of containers
 	Containers []Container `json:"containers"`
 	// Total count of containers
 	Count int `json:"count"`
-}
+} // @name ContainerList

@@ -63,6 +63,15 @@ func (h *SystemdHandler) handleError(c *gin.Context, err error, name string, ope
 	return true
 }
 
+// @Summary		Start service
+// @Description	Start a systemd service
+// @Tags			systemd
+// @Produce		json
+// @Param			name	path		string	true	"Service name"
+// @Success		200		{object}	types.Message
+// @Failure		404		{object}	types.ErrorResponse
+// @Failure		500		{object}	types.ErrorResponse
+// @Router			/systemd/{name}/start [post]
 func (h *SystemdHandler) startService(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 
@@ -77,6 +86,15 @@ func (h *SystemdHandler) startService(c *gin.Context) {
 	})
 }
 
+// @Summary		Stop service
+// @Description	Stop a systemd service
+// @Tags			systemd
+// @Produce		json
+// @Param			name	path		string	true	"Service name"
+// @Success		200		{object}	types.Message
+// @Failure		404		{object}	types.ErrorResponse
+// @Failure		500		{object}	types.ErrorResponse
+// @Router			/systemd/{name}/stop [post]
 func (h *SystemdHandler) stopService(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 
@@ -91,6 +109,15 @@ func (h *SystemdHandler) stopService(c *gin.Context) {
 	})
 }
 
+// @Summary		Restart service
+// @Description	Restart a systemd service
+// @Tags			systemd
+// @Produce		json
+// @Param			name	path		string	true	"Service name"
+// @Success		200		{object}	types.Message
+// @Failure		404		{object}	types.ErrorResponse
+// @Failure		500		{object}	types.ErrorResponse
+// @Router			/systemd/{name}/restart [post]
 func (h *SystemdHandler) restartService(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 
@@ -119,6 +146,15 @@ func setupSSE(c *gin.Context) {
 	c.Header("Transfer-Encoding", "chunked")
 }
 
+// @Summary		Stream service updates
+// @Description	Stream real-time updates about a systemd service
+// @Tags			systemd, sse
+// @Produce		text/event-stream
+// @Param			name	path		string	true	"Service name"
+// @Success		200		{object}	types.SSEvent
+// @Failure		404		{object}	types.SSEvent
+// @Failure		500		{object}	types.SSEvent
+// @Router			/systemd/{name}/stream [get]
 func (h *SystemdHandler) streamService(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 	setupSSE(c)
@@ -187,6 +223,17 @@ const (
 	defaultLogLines = 100
 )
 
+// @Summary		Stream service logs
+// @Description	Stream logs from a systemd service
+// @Tags			systemd, sse
+// @Produce		text/event-stream
+// @Param			name	path		string	true	"Service name"
+// @Param			follow	query		boolean	false	"Follow logs in real-time"		default(true)
+// @Param			lines	query		integer	false	"Number of log lines to return"	default(100)
+// @Success		200		{object}	types.SSEvent
+// @Failure		404		{object}	types.SSEvent
+// @Failure		500		{object}	types.SSEvent
+// @Router			/systemd/{name}/logs [get]
 func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 	setupSSE(c)
@@ -267,6 +314,15 @@ func (h *SystemdHandler) handleLogStreaming(
 	}
 }
 
+// @Summary		Get systemd service details
+// @Description	Get detailed information about a specific systemd service
+// @Tags			systemd
+// @Produce		json
+// @Param			name	path		string	true	"Service name"
+// @Success		200		{object}	types.SystemdServiceDetails
+// @Failure		404		{object}	types.ErrorResponse
+// @Failure		500		{object}	types.ErrorResponse
+// @Router			/systemd/{name} [get]
 func (h *SystemdHandler) getService(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 	details, err := h.service.GetUnitDetails(name)
@@ -279,6 +335,13 @@ func (h *SystemdHandler) getService(c *gin.Context) {
 	c.JSON(http.StatusOK, details)
 }
 
+// @Summary		List systemd services
+// @Description	Get a list of all systemd services
+// @Tags			systemd
+// @Produce		json
+// @Success		200	{object}	types.SystemdServiceList
+// @Failure		500	{object}	types.ErrorResponse
+// @Router			/systemd [get]
 func (h *SystemdHandler) listServices(c *gin.Context) {
 	services, err := h.service.ListUnits()
 	if err != nil {

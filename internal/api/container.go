@@ -28,6 +28,13 @@ func (h *ContainerHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("", h.listContainers)
 }
 
+//	@Summary		List containers
+//	@Description	Get a list of all containers
+//	@Tags			containers
+//	@Produce		json
+//	@Success		200	{object}	types.ContainerList
+//	@Failure		500	{object}	types.ErrorResponse
+//	@Router			/container [get]
 func (h *ContainerHandler) listContainers(c *gin.Context) {
 	h.logger.Info("listing containers")
 

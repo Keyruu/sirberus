@@ -5,14 +5,21 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
+	_ "github.com/Keyruu/sirberus/docs"
 	"github.com/Keyruu/sirberus/internal/api"
 	"github.com/Keyruu/sirberus/internal/types"
 	"github.com/Keyruu/sirberus/web"
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
+
+//	@title			Sirberus API
+//	@version		1.0
+//	@description	API for managing systemd services and containers
+//	@BasePath		/api
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
@@ -43,6 +50,8 @@ func main() {
 	containerGroup := apiGroup.Group("/container")
 	containerHandler.RegisterRoutes(containerGroup)
 
+	apiGroup.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	assetsFS, err := web.AssetsFS()
 	if err != nil {
 		logger.Error("failed to create assets file system", "error", err)
@@ -63,15 +72,5 @@ func main() {
 	logger.Info("starting server on port", "port", port)
 	logger.Info("listening for incoming requests...")
 
-	server := &http.Server{
-		Addr:         port,
-		Handler:      router,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
-
-	if err := server.ListenAndServe(); err != nil {
-		logger.Error("server stopped", "error", err)
-		os.Exit(1)
-	}
+	router.Run(port)
 }
