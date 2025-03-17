@@ -1,3 +1,4 @@
+import { ModeToggle } from '@/components/mode-toggle';
 import {
 	Breadcrumb,
 	BreadcrumbItem,
@@ -9,8 +10,56 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/dashboard/AppSidebar.tsx';
+import { Link, Outlet, useLocation } from 'react-router';
 
 function Page() {
+	const location = useLocation();
+
+	// Get the current path and create breadcrumb items
+	const getBreadcrumbs = () => {
+		const path = location.pathname;
+
+		if (path === '/') {
+			return (
+				<>
+					<BreadcrumbItem>
+						<BreadcrumbPage>Dashboard</BreadcrumbPage>
+					</BreadcrumbItem>
+				</>
+			);
+		} else if (path === '/systemd') {
+			return (
+				<>
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to="/">Dashboard</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbPage>Systemd Services</BreadcrumbPage>
+					</BreadcrumbItem>
+				</>
+			);
+		} else if (path === '/container') {
+			return (
+				<>
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to="/">Dashboard</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbPage>Container Management</BreadcrumbPage>
+					</BreadcrumbItem>
+				</>
+			);
+		}
+
+		return null;
+	};
+
 	return (
 		<SidebarProvider>
 			<AppSidebar />
@@ -19,24 +68,14 @@ function Page() {
 					<SidebarTrigger className="-ml-1" />
 					<Separator orientation="vertical" className="mr-2 h-4" />
 					<Breadcrumb>
-						<BreadcrumbList>
-							<BreadcrumbItem className="hidden md:block">
-								<BreadcrumbLink href="#">Building Your Application</BreadcrumbLink>
-							</BreadcrumbItem>
-							<BreadcrumbSeparator className="hidden md:block" />
-							<BreadcrumbItem>
-								<BreadcrumbPage>Data Fetching</BreadcrumbPage>
-							</BreadcrumbItem>
-						</BreadcrumbList>
+						<BreadcrumbList>{getBreadcrumbs()}</BreadcrumbList>
 					</Breadcrumb>
-				</header>
-				<div className="flex flex-1 flex-col gap-4 p-4">
-					<div className="grid auto-rows-min gap-4 md:grid-cols-3">
-						<div className="aspect-video rounded-xl bg-muted/50" />
-						<div className="aspect-video rounded-xl bg-muted/50" />
-						<div className="aspect-video rounded-xl bg-muted/50" />
+					<div className="ml-auto">
+						<ModeToggle />
 					</div>
-					<div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min" />
+				</header>
+				<div className="flex-1">
+					<Outlet />
 				</div>
 			</SidebarInset>
 		</SidebarProvider>

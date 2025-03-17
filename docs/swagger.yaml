@@ -67,7 +67,8 @@ definitions:
         description: Active state (e.g., "active", "inactive")
         type: string
       cpuUsage:
-        description: CPU usage in nanoseconds
+        description: CPU usage as percentage of a single core (can exceed 100% if
+          using multiple cores)
         type: number
       description:
         description: Service description
@@ -84,6 +85,9 @@ definitions:
       subState:
         description: Sub state (e.g., "running", "dead")
         type: string
+      uptime:
+        description: Uptime in seconds (time since service was started)
+        type: integer
     type: object
   SystemdServiceDetails:
     properties:
@@ -265,6 +269,7 @@ paths:
       summary: Stream service logs
       tags:
       - systemd
+      - sse
   /systemd/{name}/restart:
     post:
       description: Restart a systemd service
@@ -373,4 +378,5 @@ paths:
       summary: Stream service updates
       tags:
       - systemd
+      - sse
 swagger: "2.0"

@@ -7,9 +7,13 @@
  */
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type {
+	DataTag,
+	DefinedInitialDataOptions,
+	DefinedUseQueryResult,
 	MutationFunction,
 	QueryFunction,
 	QueryKey,
+	UndefinedInitialDataOptions,
 	UseMutationOptions,
 	UseMutationResult,
 	UseQueryOptions,
@@ -19,14 +23,7 @@ import type {
 import * as axios from 'axios';
 import type { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-import type {
-	ErrorResponse,
-	GetSystemdNameLogsParams,
-	Message,
-	SSEvent,
-	SystemdServiceDetails,
-	SystemdServiceList,
-} from '.././model';
+import type { ErrorResponse, Message, SystemdServiceDetails, SystemdServiceList } from '.././model';
 
 /**
  * Get a list of all systemd services
@@ -44,7 +41,7 @@ export const getGetSystemdQueryOptions = <
 	TData = Awaited<ReturnType<typeof getSystemd>>,
 	TError = AxiosError<ErrorResponse>,
 >(options?: {
-	query?: UseQueryOptions<Awaited<ReturnType<typeof getSystemd>>, TError, TData>;
+	query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemd>>, TError, TData>>;
 	axios?: AxiosRequestConfig;
 }) => {
 	const { query: queryOptions, axios: axiosOptions } = options ?? {};
@@ -58,12 +55,45 @@ export const getGetSystemdQueryOptions = <
 		Awaited<ReturnType<typeof getSystemd>>,
 		TError,
 		TData
-	> & { queryKey: QueryKey };
+	> & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
 export type GetSystemdQueryResult = NonNullable<Awaited<ReturnType<typeof getSystemd>>>;
 export type GetSystemdQueryError = AxiosError<ErrorResponse>;
 
+export function useGetSystemd<
+	TData = Awaited<ReturnType<typeof getSystemd>>,
+	TError = AxiosError<ErrorResponse>,
+>(options: {
+	query: Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemd>>, TError, TData>> &
+		Pick<
+			DefinedInitialDataOptions<Awaited<ReturnType<typeof getSystemd>>, TError, Awaited<ReturnType<typeof getSystemd>>>,
+			'initialData'
+		>;
+	axios?: AxiosRequestConfig;
+}): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetSystemd<
+	TData = Awaited<ReturnType<typeof getSystemd>>,
+	TError = AxiosError<ErrorResponse>,
+>(options?: {
+	query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemd>>, TError, TData>> &
+		Pick<
+			UndefinedInitialDataOptions<
+				Awaited<ReturnType<typeof getSystemd>>,
+				TError,
+				Awaited<ReturnType<typeof getSystemd>>
+			>,
+			'initialData'
+		>;
+	axios?: AxiosRequestConfig;
+}): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetSystemd<
+	TData = Awaited<ReturnType<typeof getSystemd>>,
+	TError = AxiosError<ErrorResponse>,
+>(options?: {
+	query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemd>>, TError, TData>>;
+	axios?: AxiosRequestConfig;
+}): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
  * @summary List systemd services
  */
@@ -72,12 +102,14 @@ export function useGetSystemd<
 	TData = Awaited<ReturnType<typeof getSystemd>>,
 	TError = AxiosError<ErrorResponse>,
 >(options?: {
-	query?: UseQueryOptions<Awaited<ReturnType<typeof getSystemd>>, TError, TData>;
+	query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemd>>, TError, TData>>;
 	axios?: AxiosRequestConfig;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+}): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 	const queryOptions = getGetSystemdQueryOptions(options);
 
-	const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+	const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+		queryKey: DataTag<QueryKey, TData, TError>;
+	};
 
 	query.queryKey = queryOptions.queryKey;
 
@@ -105,7 +137,7 @@ export const getGetSystemdNameQueryOptions = <
 >(
 	name: string,
 	options?: {
-		query?: UseQueryOptions<Awaited<ReturnType<typeof getSystemdName>>, TError, TData>;
+		query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemdName>>, TError, TData>>;
 		axios?: AxiosRequestConfig;
 	}
 ) => {
@@ -120,12 +152,58 @@ export const getGetSystemdNameQueryOptions = <
 		Awaited<ReturnType<typeof getSystemdName>>,
 		TError,
 		TData
-	> & { queryKey: QueryKey };
+	> & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
 export type GetSystemdNameQueryResult = NonNullable<Awaited<ReturnType<typeof getSystemdName>>>;
 export type GetSystemdNameQueryError = AxiosError<ErrorResponse>;
 
+export function useGetSystemdName<
+	TData = Awaited<ReturnType<typeof getSystemdName>>,
+	TError = AxiosError<ErrorResponse>,
+>(
+	name: string,
+	options: {
+		query: Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemdName>>, TError, TData>> &
+			Pick<
+				DefinedInitialDataOptions<
+					Awaited<ReturnType<typeof getSystemdName>>,
+					TError,
+					Awaited<ReturnType<typeof getSystemdName>>
+				>,
+				'initialData'
+			>;
+		axios?: AxiosRequestConfig;
+	}
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetSystemdName<
+	TData = Awaited<ReturnType<typeof getSystemdName>>,
+	TError = AxiosError<ErrorResponse>,
+>(
+	name: string,
+	options?: {
+		query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemdName>>, TError, TData>> &
+			Pick<
+				UndefinedInitialDataOptions<
+					Awaited<ReturnType<typeof getSystemdName>>,
+					TError,
+					Awaited<ReturnType<typeof getSystemdName>>
+				>,
+				'initialData'
+			>;
+		axios?: AxiosRequestConfig;
+	}
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetSystemdName<
+	TData = Awaited<ReturnType<typeof getSystemdName>>,
+	TError = AxiosError<ErrorResponse>,
+>(
+	name: string,
+	options?: {
+		query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemdName>>, TError, TData>>;
+		axios?: AxiosRequestConfig;
+	}
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
  * @summary Get systemd service details
  */
@@ -136,84 +214,15 @@ export function useGetSystemdName<
 >(
 	name: string,
 	options?: {
-		query?: UseQueryOptions<Awaited<ReturnType<typeof getSystemdName>>, TError, TData>;
+		query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getSystemdName>>, TError, TData>>;
 		axios?: AxiosRequestConfig;
 	}
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 	const queryOptions = getGetSystemdNameQueryOptions(name, options);
 
-	const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-	query.queryKey = queryOptions.queryKey;
-
-	return query;
-}
-
-/**
- * Stream logs from a systemd service
- * @summary Stream service logs
- */
-export const getSystemdNameLogs = (
-	name: string,
-	params?: GetSystemdNameLogsParams,
-	options?: AxiosRequestConfig
-): Promise<AxiosResponse<SSEvent>> => {
-	return axios.default.get(`/systemd/${name}/logs`, {
-		...options,
-		params: { ...params, ...options?.params },
-	});
-};
-
-export const getGetSystemdNameLogsQueryKey = (name: string, params?: GetSystemdNameLogsParams) => {
-	return [`/systemd/${name}/logs`, ...(params ? [params] : [])] as const;
-};
-
-export const getGetSystemdNameLogsQueryOptions = <
-	TData = Awaited<ReturnType<typeof getSystemdNameLogs>>,
-	TError = AxiosError<SSEvent>,
->(
-	name: string,
-	params?: GetSystemdNameLogsParams,
-	options?: {
-		query?: UseQueryOptions<Awaited<ReturnType<typeof getSystemdNameLogs>>, TError, TData>;
-		axios?: AxiosRequestConfig;
-	}
-) => {
-	const { query: queryOptions, axios: axiosOptions } = options ?? {};
-
-	const queryKey = queryOptions?.queryKey ?? getGetSystemdNameLogsQueryKey(name, params);
-
-	const queryFn: QueryFunction<Awaited<ReturnType<typeof getSystemdNameLogs>>> = ({ signal }) =>
-		getSystemdNameLogs(name, params, { signal, ...axiosOptions });
-
-	return { queryKey, queryFn, enabled: !!name, ...queryOptions } as UseQueryOptions<
-		Awaited<ReturnType<typeof getSystemdNameLogs>>,
-		TError,
-		TData
-	> & { queryKey: QueryKey };
-};
-
-export type GetSystemdNameLogsQueryResult = NonNullable<Awaited<ReturnType<typeof getSystemdNameLogs>>>;
-export type GetSystemdNameLogsQueryError = AxiosError<SSEvent>;
-
-/**
- * @summary Stream service logs
- */
-
-export function useGetSystemdNameLogs<
-	TData = Awaited<ReturnType<typeof getSystemdNameLogs>>,
-	TError = AxiosError<SSEvent>,
->(
-	name: string,
-	params?: GetSystemdNameLogsParams,
-	options?: {
-		query?: UseQueryOptions<Awaited<ReturnType<typeof getSystemdNameLogs>>, TError, TData>;
-		axios?: AxiosRequestConfig;
-	}
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-	const queryOptions = getGetSystemdNameLogsQueryOptions(name, params, options);
-
-	const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+	const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+		queryKey: DataTag<QueryKey, TData, TError>;
+	};
 
 	query.queryKey = queryOptions.queryKey;
 
@@ -358,64 +367,3 @@ export const usePostSystemdNameStop = <TError = AxiosError<ErrorResponse>, TCont
 
 	return useMutation(mutationOptions);
 };
-/**
- * Stream real-time updates about a systemd service
- * @summary Stream service updates
- */
-export const getSystemdNameStream = (name: string, options?: AxiosRequestConfig): Promise<AxiosResponse<SSEvent>> => {
-	return axios.default.get(`/systemd/${name}/stream`, options);
-};
-
-export const getGetSystemdNameStreamQueryKey = (name: string) => {
-	return [`/systemd/${name}/stream`] as const;
-};
-
-export const getGetSystemdNameStreamQueryOptions = <
-	TData = Awaited<ReturnType<typeof getSystemdNameStream>>,
-	TError = AxiosError<SSEvent>,
->(
-	name: string,
-	options?: {
-		query?: UseQueryOptions<Awaited<ReturnType<typeof getSystemdNameStream>>, TError, TData>;
-		axios?: AxiosRequestConfig;
-	}
-) => {
-	const { query: queryOptions, axios: axiosOptions } = options ?? {};
-
-	const queryKey = queryOptions?.queryKey ?? getGetSystemdNameStreamQueryKey(name);
-
-	const queryFn: QueryFunction<Awaited<ReturnType<typeof getSystemdNameStream>>> = ({ signal }) =>
-		getSystemdNameStream(name, { signal, ...axiosOptions });
-
-	return { queryKey, queryFn, enabled: !!name, ...queryOptions } as UseQueryOptions<
-		Awaited<ReturnType<typeof getSystemdNameStream>>,
-		TError,
-		TData
-	> & { queryKey: QueryKey };
-};
-
-export type GetSystemdNameStreamQueryResult = NonNullable<Awaited<ReturnType<typeof getSystemdNameStream>>>;
-export type GetSystemdNameStreamQueryError = AxiosError<SSEvent>;
-
-/**
- * @summary Stream service updates
- */
-
-export function useGetSystemdNameStream<
-	TData = Awaited<ReturnType<typeof getSystemdNameStream>>,
-	TError = AxiosError<SSEvent>,
->(
-	name: string,
-	options?: {
-		query?: UseQueryOptions<Awaited<ReturnType<typeof getSystemdNameStream>>, TError, TData>;
-		axios?: AxiosRequestConfig;
-	}
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-	const queryOptions = getGetSystemdNameStreamQueryOptions(name, options);
-
-	const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-	query.queryKey = queryOptions.queryKey;
-
-	return query;
-}

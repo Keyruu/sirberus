@@ -6,7 +6,16 @@
  * OpenAPI spec version: 1.0
  */
 import { useQuery } from '@tanstack/react-query';
-import type { QueryFunction, QueryKey, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
+import type {
+	DataTag,
+	DefinedInitialDataOptions,
+	DefinedUseQueryResult,
+	QueryFunction,
+	QueryKey,
+	UndefinedInitialDataOptions,
+	UseQueryOptions,
+	UseQueryResult,
+} from '@tanstack/react-query';
 
 import * as axios from 'axios';
 import type { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
@@ -29,7 +38,7 @@ export const getGetContainerQueryOptions = <
 	TData = Awaited<ReturnType<typeof getContainer>>,
 	TError = AxiosError<ErrorResponse>,
 >(options?: {
-	query?: UseQueryOptions<Awaited<ReturnType<typeof getContainer>>, TError, TData>;
+	query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getContainer>>, TError, TData>>;
 	axios?: AxiosRequestConfig;
 }) => {
 	const { query: queryOptions, axios: axiosOptions } = options ?? {};
@@ -43,12 +52,49 @@ export const getGetContainerQueryOptions = <
 		Awaited<ReturnType<typeof getContainer>>,
 		TError,
 		TData
-	> & { queryKey: QueryKey };
+	> & { queryKey: DataTag<QueryKey, TData, TError> };
 };
 
 export type GetContainerQueryResult = NonNullable<Awaited<ReturnType<typeof getContainer>>>;
 export type GetContainerQueryError = AxiosError<ErrorResponse>;
 
+export function useGetContainer<
+	TData = Awaited<ReturnType<typeof getContainer>>,
+	TError = AxiosError<ErrorResponse>,
+>(options: {
+	query: Partial<UseQueryOptions<Awaited<ReturnType<typeof getContainer>>, TError, TData>> &
+		Pick<
+			DefinedInitialDataOptions<
+				Awaited<ReturnType<typeof getContainer>>,
+				TError,
+				Awaited<ReturnType<typeof getContainer>>
+			>,
+			'initialData'
+		>;
+	axios?: AxiosRequestConfig;
+}): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetContainer<
+	TData = Awaited<ReturnType<typeof getContainer>>,
+	TError = AxiosError<ErrorResponse>,
+>(options?: {
+	query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getContainer>>, TError, TData>> &
+		Pick<
+			UndefinedInitialDataOptions<
+				Awaited<ReturnType<typeof getContainer>>,
+				TError,
+				Awaited<ReturnType<typeof getContainer>>
+			>,
+			'initialData'
+		>;
+	axios?: AxiosRequestConfig;
+}): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetContainer<
+	TData = Awaited<ReturnType<typeof getContainer>>,
+	TError = AxiosError<ErrorResponse>,
+>(options?: {
+	query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getContainer>>, TError, TData>>;
+	axios?: AxiosRequestConfig;
+}): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 /**
  * @summary List containers
  */
@@ -57,12 +103,14 @@ export function useGetContainer<
 	TData = Awaited<ReturnType<typeof getContainer>>,
 	TError = AxiosError<ErrorResponse>,
 >(options?: {
-	query?: UseQueryOptions<Awaited<ReturnType<typeof getContainer>>, TError, TData>;
+	query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getContainer>>, TError, TData>>;
 	axios?: AxiosRequestConfig;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+}): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 	const queryOptions = getGetContainerQueryOptions(options);
 
-	const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+	const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+		queryKey: DataTag<QueryKey, TData, TError>;
+	};
 
 	query.queryKey = queryOptions.queryKey;
 

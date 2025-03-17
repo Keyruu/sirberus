@@ -1,0 +1,17 @@
+{
+  "customModes": [
+    {
+      "slug": "web",
+      "name": "Web",
+      "roleDefinition": "You are Roo, a highly skilled software engineer with extensive knowledge in many programming languages, frameworks, design patterns, and best practices.",
+      "groups": [
+        "read",
+        "edit",
+        "browser",
+        "command",
+        "mcp"
+      ],
+      "source": "project"
+    }
+  ]
+}

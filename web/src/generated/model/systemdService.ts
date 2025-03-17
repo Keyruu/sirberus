@@ -9,7 +9,7 @@
 export interface SystemdService {
 	/** Active state (e.g., "active", "inactive") */
 	activeState?: string;
-	/** CPU usage in nanoseconds */
+	/** CPU usage as percentage of a single core (can exceed 100% if using multiple cores) */
 	cpuUsage?: number;
 	/** Service description */
 	description?: string;
@@ -21,4 +21,6 @@ export interface SystemdService {
 	name?: string;
 	/** Sub state (e.g., "running", "dead") */
 	subState?: string;
+	/** Uptime in seconds (time since service was started) */
+	uptime?: number;
 }

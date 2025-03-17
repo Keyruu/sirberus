@@ -9,7 +9,6 @@
 export * from './container';
 export * from './containerList';
 export * from './errorResponse';
-export * from './getSystemdNameLogsParams';
 export * from './message';
 export * from './sSEvent';
 export * from './systemdService';

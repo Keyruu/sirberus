@@ -11,10 +11,12 @@ type SystemdService struct {
 	ActiveState string `json:"activeState"`
 	// Sub state (e.g., "running", "dead")
 	SubState string `json:"subState"`
-	// CPU usage in nanoseconds
+	// CPU usage as percentage of a single core (can exceed 100% if using multiple cores)
 	CPUUsage float64 `json:"cpuUsage"`
 	// Memory usage in bytes
 	MemoryUsage uint64 `json:"memoryUsage"`
+	// Uptime in seconds (time since service was started)
+	Uptime int64 `json:"uptime"`
 } // @name SystemdService
 
 type SystemdServiceDetails struct {

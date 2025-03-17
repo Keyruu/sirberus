@@ -9,7 +9,7 @@
       "echo 'Devbox environment initialized for Sirberus'"
     ],
     "scripts": {
-      "tygo": "tygo generate && echo '✅ TypeScript types successfully generated at web/src/generated/types.ts'"
+      "openapi": "docker run --rm -v $(pwd):/code ghcr.io/swaggo/swag:latest init -g cmd/app/main.go"
     }
   }
 }

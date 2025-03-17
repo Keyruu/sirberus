@@ -1,0 +1,118 @@
+You are an expert AI programming assistant focused on clear, maintainable React and TypeScript code using the following tech stack:
+
+- Use pnpm for package management
+- Everything is located in the `web` folder
+- React (functional components, hooks)
+- TypeScript (latest stable)
+- Vite (no Next.js)
+- Tailwind CSS
+- Shadcn UI
+- React Router for routing
+- Lucide Icons
+- API generated via OpenAPI specification with Orval, located at `src/generated`
+
+### Style and Structure
+
+- Write concise, technical, and accurate TypeScript code.
+- Use functional, declarative programming; avoid classes.
+- Favor iteration and modularization over code duplication.
+- Descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
+- Use lowercase with dashes for directory names (e.g., components/auth-wizard).
+- Favor named exports for components.
+- Follow the Receive an Object, Return an Object (RORO) pattern.
+- Structure files: exported component, subcomponents, helpers, static content, types/interfaces.
+
+### TypeScript Usage
+
+- Use TypeScript interfaces over types where possible.
+- Avoid enums; prefer plain objects (maps).
+- Explicitly type all components, props, hooks, and utility functions.
+
+### Syntax and Formatting
+
+- Use the `function` keyword for pure functions.
+- Omit semicolons for consistency.
+- Avoid unnecessary curly braces in conditional statements.
+- Use concise, one-line syntax for simple conditionals:
+  ```typescript
+  if (condition) doSomething()
+  ```
+- Always use declarative JSX.
+
+### UI and Styling
+
+- Exclusively use Tailwind CSS and Shadcn UI for styling and UI components.
+- Implement responsive design using a mobile-first approach with Tailwind.
+- Utilize Lucide Icons consistently.
+- Optimize images with WebP format, specify dimensions, and use lazy loading.
+
+### Routing
+
+- Use React Router v6 with `createBrowserRouter`, `Outlet`, and nested routes.
+- Clearly separate route components under `/src/pages`.
+- Use protected routes, layout routes, and error boundaries provided by React Router.
+
+### Components Organization
+
+- Structure under `/src/components` directory:
+
+```plaintext
+/src/components
+├── /ui
+│   ├── Button
+│   ├── Card
+│   └── Modal
+├── /forms
+│   ├── TextField
+│   └── Select
+└── /layout
+    ├── Navbar
+    └── Footer
+```
+
+- Private components used within specific pages reside in `_components` folders within `/src/pages`.
+- Shared, reusable components are always placed in `/src/components`.
+- Adopt modular structure as the project scales.
+
+### Error Handling and Validation
+
+- Handle errors and edge cases early using guard clauses and early returns:
+
+```typescript
+function fetchData({ id }: { id: string }) {
+  if (!id) return { error: \"ID is required\" }
+  // happy path
+}
+```
+
+- Clearly separate expected errors (returned as values) from unexpected errors (handled by error boundaries).
+- Provide meaningful, user-friendly error messages.
+- Use Zod for form and input validation.
+
+### Performance Optimization
+
+- Minimize the use of `useEffect` and `useState` hooks; rely on React Router loaders/actions when possible.
+- Wrap dynamic or heavy components with React.lazy and `<Suspense fallback={}>`.
+- Optimize performance through conditional rendering and memoization (`useMemo`, `useCallback`).
+
+### Naming Conventions
+
+- Component files named in kebab-case, e.g., `new-component.tsx`.
+- Component names in PascalCase, e.g., `NewComponent`.
+- Directories use lowercase with dashes (e.g., `auth-wizard`).
+
+### Key Conventions
+
+- Use consistent URL state management via React Router URL parameters (`useSearchParams`).
+- Prioritize web vitals (LCP, CLS, FID).
+- Keep application logic (`src/pages`) separate from UI components (`src/components`).
+- Clearly comment code to enhance readability and maintainability.
+- Maintain a clear separation of concerns, organizing files for ease of navigation and scalability.
+
+### Static Content and Interfaces
+
+- Place interfaces at the bottom of component files.
+- Define static content and constants separately to maintain clear render logic.
+
+These conventions ensure a high-quality, performant, and maintainable SPA built with React, TypeScript, Vite, Tailwind, Shadcn UI, React Router, Lucide Icons, and APIs generated via OpenAPI with Orval.
+
