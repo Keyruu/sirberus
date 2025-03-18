@@ -224,12 +224,11 @@ const (
 )
 
 // @Summary		Stream service logs
-// @Description	Stream logs from a systemd service
+// @Description	Stream logs from a systemd service (always includes real-time updates)
 // @Tags			systemd, sse
 // @Produce		text/event-stream
 // @Param			name	path		string	true	"Service name"
-// @Param			follow	query		boolean	false	"Follow logs in real-time"		default(true)
-// @Param			lines	query		integer	false	"Number of log lines to return"	default(100)
+// @Param			lines	query		integer	false	"Number of historical log lines to return before streaming new ones"	default(100)
 // @Success		200		{object}	types.SSEvent
 // @Failure		404		{object}	types.SSEvent
 // @Failure		500		{object}	types.SSEvent
@@ -238,27 +237,22 @@ func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 	setupSSE(c)
 
-	follow, numLines := h.parseLogQueryParams(c)
+	numLines := h.parseLogQueryParams(c)
 
 	ctx, cancel := context.WithCancel(c.Request.Context())
 	defer cancel()
 
-	logCh, errCh := h.service.StreamServiceLogs(ctx, name, follow, numLines)
+	// Always use follow=true as we always want real-time updates
+	logCh, errCh := h.service.StreamServiceLogs(ctx, name, true, numLines)
 
 	h.logger.Info("started streaming logs",
 		"service", name,
-		"follow", follow,
 		"lines", numLines)
 
 	h.handleLogStreaming(ctx, c, logCh, errCh, name)
 }
 
-func (h *SystemdHandler) parseLogQueryParams(c *gin.Context) (bool, int) {
-	follow := true
-	if followParam := c.Query("follow"); followParam == "false" {
-		follow = false
-	}
-
+func (h *SystemdHandler) parseLogQueryParams(c *gin.Context) int {
 	numLines := defaultLogLines
 	if linesParam := c.Query("lines"); linesParam != "" {
 		if n, err := fmt.Sscanf(linesParam, "%d", &numLines); err != nil || n != 1 {
@@ -269,7 +263,7 @@ func (h *SystemdHandler) parseLogQueryParams(c *gin.Context) (bool, int) {
 		}
 	}
 
-	return follow, numLines
+	return numLines
 }
 
 func (h *SystemdHandler) handleLogStreaming(
@@ -279,6 +273,22 @@ func (h *SystemdHandler) handleLogStreaming(
 	errCh <-chan error,
 	serviceName string,
 ) {
+	// Create a heartbeat ticker to ensure the connection stays alive
+	heartbeatTicker := time.NewTicker(5 * time.Second)
+	defer heartbeatTicker.Stop()
+
+	// Create a service status checker ticker
+	statusCheckTicker := time.NewTicker(2 * time.Second)
+	defer statusCheckTicker.Stop()
+
+	// Track the last time we sent a log
+	lastLogTime := time.Now()
+	noLogThreshold := 10 * time.Second
+
+	// Track if we've detected a service restart
+	var serviceRestarted bool
+	var lastActiveState string
+
 	for {
 		select {
 		case log, ok := <-logCh:
@@ -292,6 +302,8 @@ func (h *SystemdHandler) handleLogStreaming(
 			}
 			c.SSEvent(logEvent.Type, logEvent.Content)
 			c.Writer.Flush()
+			lastLogTime = time.Now()
+
 		case err, ok := <-errCh:
 			if !ok {
 				continue
@@ -305,7 +317,82 @@ func (h *SystemdHandler) handleLogStreaming(
 			}
 			c.SSEvent(errorEvent.Type, errorEvent.Content)
 			c.Writer.Flush()
-			return
+
+			// Don't return on error, try to continue streaming
+			// Only return if the context is done
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				// Continue streaming
+			}
+
+		case <-heartbeatTicker.C:
+			// Send a heartbeat event to keep the connection alive
+			heartbeatEvent := types.SSEvent{
+				Type:    "heartbeat",
+				Content: time.Now().Format(time.RFC3339),
+			}
+			c.SSEvent(heartbeatEvent.Type, heartbeatEvent.Content)
+			c.Writer.Flush()
+
+			// Check if we haven't received logs for a while
+			if time.Since(lastLogTime) > noLogThreshold && serviceRestarted {
+				h.logger.Info("no logs received for a while after service restart, recreating log stream",
+					"service", serviceName,
+					"time_since_last_log", time.Since(lastLogTime).String())
+
+				// Create a new context that will be canceled when the original context is done
+				newCtx, cancel := context.WithCancel(ctx)
+				go func() {
+					<-ctx.Done()
+					cancel()
+				}()
+
+				// Get a new log stream
+				newLogCh, newErrCh := h.service.StreamServiceLogs(newCtx, serviceName, true, 10)
+
+				// Replace the channels
+				logCh = newLogCh
+				errCh = newErrCh
+
+				// Reset flags
+				serviceRestarted = false
+				lastLogTime = time.Now()
+			}
+
+		case <-statusCheckTicker.C:
+			// Check the service status to detect restarts
+			details, err := h.service.GetUnitDetails(serviceName)
+			if err != nil {
+				h.logger.Warn("failed to get service details during status check",
+					"service", serviceName,
+					"error", err)
+				continue
+			}
+
+			currentState := details.Service.ActiveState
+
+			// If the state changed from inactive to active, it might indicate a restart
+			if lastActiveState == "inactive" && currentState == "active" {
+				h.logger.Info("detected service restart",
+					"service", serviceName,
+					"previous_state", lastActiveState,
+					"current_state", currentState)
+
+				serviceRestarted = true
+
+				// Send a notification to the client
+				restartEvent := types.SSEvent{
+					Type:    "service_restart",
+					Content: "Service has been restarted",
+				}
+				c.SSEvent(restartEvent.Type, restartEvent.Content)
+				c.Writer.Flush()
+			}
+
+			lastActiveState = currentState
+
 		case <-ctx.Done():
 			h.logger.Info("client disconnected from log stream",
 				"service", serviceName)

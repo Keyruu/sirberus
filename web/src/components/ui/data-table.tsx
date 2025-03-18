@@ -6,16 +6,17 @@ import {
 	getFilteredRowModel,
 	getPaginationRowModel,
 	getSortedRowModel,
+	Row,
 	SortingState,
 	Table as TableType,
 	useReactTable,
 	VisibilityState,
 } from '@tanstack/react-table';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useEffect, useState } from 'react';
 import { Button } from './button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
@@ -24,6 +25,10 @@ interface DataTableProps<TData, TValue> {
 	toolbar?: (table: TableType<TData>) => React.ReactNode;
 	pageSize?: number;
 	pageSizeOptions?: number[];
+	enableRowSelection?: boolean;
+	onRowSelectionChange?: (rows: Row<TData>[]) => void;
+	rowActions?: (row: Row<TData>) => React.ReactNode;
+	bulkActions?: (rows: Row<TData>[]) => React.ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -32,6 +37,10 @@ export function DataTable<TData, TValue>({
 	toolbar,
 	pageSize = 10,
 	pageSizeOptions = [5, 10, 20, 50, 100],
+	enableRowSelection = false,
+	onRowSelectionChange,
+	rowActions,
+	bulkActions,
 }: DataTableProps<TData, TValue>) {
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -61,6 +70,7 @@ export function DataTable<TData, TValue>({
 			rowSelection,
 			pagination,
 		},
+		enableRowSelection,
 		manualPagination: false,
 		// We'll calculate pageCount based on filtered rows in the UI
 	});
@@ -77,9 +87,27 @@ export function DataTable<TData, TValue>({
 		}
 	}, [table, columnFilters, pagination.pageSize, pagination.pageIndex]);
 
+	// Get selected rows for bulk actions
+	const selectedRows = table.getRowModel().rows.filter(row => row.getIsSelected());
+
+	// Call onRowSelectionChange when selected rows change
+	useEffect(() => {
+		if (onRowSelectionChange && Object.keys(rowSelection).length > 0) {
+			onRowSelectionChange(selectedRows);
+		}
+	}, [rowSelection, onRowSelectionChange, selectedRows]);
+
 	return (
 		<div className="space-y-4">
 			{toolbar && toolbar(table)}
+			{selectedRows.length > 0 && bulkActions && (
+				<div className="bg-muted p-2 rounded-md flex items-center justify-between">
+					<div className="text-sm font-medium">
+						{selectedRows.length} {selectedRows.length === 1 ? 'row' : 'rows'} selected
+					</div>
+					<div className="flex space-x-2">{bulkActions(selectedRows)}</div>
+				</div>
+			)}
 			<div className="rounded-md border">
 				<Table>
 					<TableHeader>
@@ -90,6 +118,7 @@ export function DataTable<TData, TValue>({
 										{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
 									</TableHead>
 								))}
+								{rowActions && <TableHead className="w-[50px]"></TableHead>}
 							</TableRow>
 						))}
 					</TableHeader>
@@ -100,11 +129,12 @@ export function DataTable<TData, TValue>({
 									{row.getVisibleCells().map(cell => (
 										<TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
 									))}
+									{rowActions && <TableCell className="text-right w-[50px] p-2">{rowActions(row)}</TableCell>}
 								</TableRow>
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={columns.length} className="h-24 text-center">
+								<TableCell colSpan={columns.length + (rowActions ? 1 : 0)} className="h-24 text-center">
 									No results.
 								</TableCell>
 							</TableRow>

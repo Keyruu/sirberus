@@ -1,16 +1,17 @@
 package systemd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os/exec"
+	"strings"
 	"time"
-
-	"github.com/coreos/go-systemd/v22/sdjournal"
 )
 
 type LogEntry struct {
-	// Timestamp of the log entry
-	Timestamp time.Time
+	// Timestamp of the log entry as a string
+	Timestamp string
 	// Message content
 	Message string
 	// Unit name that generated the log
@@ -18,9 +19,13 @@ type LogEntry struct {
 }
 
 func (e LogEntry) String() string {
-	return fmt.Sprintf("%s: %s", e.Timestamp.Format(time.RFC3339), e.Message)
+	// Pass the timestamp directly to the frontend
+	return fmt.Sprintf("%s: %s", e.Timestamp, e.Message)
 }
 
+// StreamServiceLogs retrieves the last numLines log entries for the specified unit
+// and then continues streaming new logs as they arrive
+// The follow parameter is ignored - we always stream real-time updates
 func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string, follow bool, numLines int) (<-chan string, <-chan error) {
 	logCh := make(chan string)
 	errCh := make(chan error, 1)
@@ -29,119 +34,159 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 		defer close(logCh)
 		defer close(errCh)
 
-		journal, err := sdjournal.NewJournal()
+		// Ensure numLines is at least 1
+		count := numLines
+		if count <= 0 {
+			count = 1
+		}
+
+		s.logger.Info("starting journalctl log streaming",
+			"unit", unitName,
+			"lines", count)
+
+		// Start journalctl process with appropriate flags
+		// -u: unit name
+		// -f: follow (real-time updates)
+		// -n: number of lines
+		// -o: output format (short-iso includes timestamps)
+		cmd := exec.CommandContext(ctx, "journalctl", "-u", unitName, "-f", "-n", fmt.Sprintf("%d", count), "-o", "short-iso")
+
+		// Get stdout pipe
+		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			errCh <- fmt.Errorf("failed to open systemd journal for unit %s: %w", unitName, err)
-			return
-		}
-		defer journal.Close()
-
-		if err := journal.AddMatch(journalUnitField + "=" + unitName); err != nil {
-			errCh <- fmt.Errorf("failed to add unit match for %s: %w", unitName, err)
+			errCh <- fmt.Errorf("failed to get stdout pipe: %w", err)
 			return
 		}
 
-		if err := s.positionJournalCursor(journal, follow, numLines); err != nil {
-			errCh <- err
+		// Get stderr pipe
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			errCh <- fmt.Errorf("failed to get stderr pipe: %w", err)
 			return
 		}
 
-		s.processJournalEntries(ctx, journal, unitName, follow, logCh, errCh)
-	}()
-
-	return logCh, errCh
-}
-
-func (s *SystemdService) positionJournalCursor(journal *sdjournal.Journal, follow bool, numLines int) error {
-	if err := journal.SeekTail(); err != nil {
-		return fmt.Errorf("failed to seek to tail: %w", err)
-	}
-
-	if follow {
-		if _, err := journal.Previous(); err != nil {
-			s.logger.Warn("failed to move to previous entry, might be empty journal", "error", err)
+		// Start the command
+		if err := cmd.Start(); err != nil {
+			errCh <- fmt.Errorf("failed to start journalctl: %w", err)
+			return
 		}
-		return nil
-	}
 
-	if numLines > 0 {
-		for i := 0; i < numLines; i++ {
-			if _, err := journal.Previous(); err != nil {
-				break // Reached the beginning of the journal
+		// We still need to cancel any resources when the function returns
+		_, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		// Handle stderr in a separate goroutine
+		go func() {
+			scanner := bufio.NewScanner(stderr)
+			for scanner.Scan() {
+				errText := scanner.Text()
+				s.logger.Warn("journalctl stderr", "text", errText)
 			}
-		}
-	}
+		}()
 
-	return nil
-}
+		// Process stdout
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			line := scanner.Text()
 
-func (s *SystemdService) processJournalEntries(
-	ctx context.Context,
-	journal *sdjournal.Journal,
-	unitName string,
-	follow bool,
-	logCh chan<- string,
-	errCh chan<- error,
-) {
-	for {
-		select {
-		case <-ctx.Done():
-			errCh <- ctx.Err()
-			return
-		default:
-			if follow {
-				waitResult := journal.Wait(journalWaitTimeout)
-				if waitResult == sdjournal.SD_JOURNAL_NOP {
-					continue // No new entries yet
-				}
-			}
-
-			n, err := journal.Next()
+			// Parse the log entry
+			entry, err := s.parseJournalctlLine(line, unitName)
 			if err != nil {
-				errCh <- fmt.Errorf("error reading journal for unit %s: %w", unitName, err)
-				return
-			}
-
-			if n == 0 {
-				if !follow {
-					return // We're done if not following
-				}
-				continue // Wait for more entries if following
-			}
-
-			entry, err := s.formatLogEntry(journal, unitName)
-			if err != nil {
-				s.logger.Warn("failed to format log entry", "error", err, "unit", unitName)
+				s.logger.Warn("failed to parse journalctl line", "error", err, "line", line)
 				continue
 			}
 
 			select {
 			case logCh <- entry:
 			case <-ctx.Done():
+				// Context canceled, stop processing
+				if cmd.Process != nil {
+					if err := cmd.Process.Kill(); err != nil {
+						s.logger.Warn("failed to kill journalctl process on context done", "error", err)
+					}
+				}
 				errCh <- ctx.Err()
 				return
 			}
 		}
-	}
+
+		// Check for scanner errors
+		if err := scanner.Err(); err != nil {
+			s.logger.Warn("scanner error", "error", err)
+		}
+
+		// Wait for the command to finish
+		err = cmd.Wait()
+
+		// If the context was canceled, this is expected
+		if ctx.Err() != nil {
+			return
+		}
+
+		// If we get here and there's no context error, the journalctl process exited unexpectedly
+		// Start a new journalctl process
+		s.logger.Info("journalctl process exited, restarting", "unit", unitName, "error", err)
+
+		// Small delay before restarting
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(500 * time.Millisecond):
+		}
+
+		// Recursively call StreamServiceLogs to restart the process
+		newLogCh, newErrCh := s.StreamServiceLogs(ctx, unitName, follow, 10) // Only get the last 10 lines on restart
+
+		// Forward logs and errors from the new channels
+		for {
+			select {
+			case log, ok := <-newLogCh:
+				if !ok {
+					return
+				}
+				logCh <- log
+			case err, ok := <-newErrCh:
+				if !ok {
+					return
+				}
+				errCh <- err
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return logCh, errCh
 }
 
-func (s *SystemdService) formatLogEntry(journal *sdjournal.Journal, unitName string) (string, error) {
-	message, err := journal.GetDataValue(journalMessageField)
-	if err != nil {
-		return "", fmt.Errorf("failed to get message from journal entry: %w", err)
+// parseJournalctlLine parses a line from journalctl output
+// Format example: "2023-03-17T20:53:05+0100 hostname systemd[1]: Started My Service."
+func (s *SystemdService) parseJournalctlLine(line string, unitName string) (string, error) {
+	// Find the first space which separates the timestamp from the rest
+	timestampEndIndex := strings.Index(line, " ")
+	if timestampEndIndex <= 0 {
+		return "", fmt.Errorf("invalid journalctl line format: %s", line)
 	}
 
-	var timestamp time.Time
-	if realtime, err := journal.GetRealtimeUsec(); err == nil {
-		seconds := int64(realtime / microsecondsPerSecond)
-		nanoseconds := int64((realtime % microsecondsPerSecond) * nanosecondsPerMicrosecond)
-		timestamp = time.Unix(seconds, nanoseconds)
-	} else {
-		timestamp = time.Now()
+	// Extract timestamp string directly without parsing
+	timestampStr := line[:timestampEndIndex]
+
+	// Extract message (everything after the timestamp)
+	fullMessage := strings.TrimSpace(line[timestampEndIndex+1:])
+
+	// Split the message by spaces
+	parts := strings.SplitN(fullMessage, " ", 2)
+
+	// If we have at least 2 parts, the first part is the hostname, so skip it
+	message := fullMessage
+	if len(parts) >= 2 {
+		// Skip the hostname, keep everything else
+		message = parts[1]
 	}
 
+	// Create log entry
 	entry := LogEntry{
-		Timestamp: timestamp,
+		Timestamp: timestampStr,
 		Message:   message,
 		UnitName:  unitName,
 	}

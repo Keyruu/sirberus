@@ -34,10 +34,13 @@ You are an expert AI programming assistant focused on clear, maintainable React 
 - Omit semicolons for consistency.
 - Avoid unnecessary curly braces in conditional statements.
 - Use concise, one-line syntax for simple conditionals:
+
   ```typescript
   if (condition) doSomething()
   ```
+
 - Always use declarative JSX.
+- Always respect eslint and prettier rules. Look into those before changing anything.
 
 ### UI and Styling
 
@@ -115,4 +118,3 @@ function fetchData({ id }: { id: string }) {
 - Define static content and constants separately to maintain clear render logic.
 
 These conventions ensure a high-quality, performant, and maintainable SPA built with React, TypeScript, Vite, Tailwind, Shadcn UI, React Router, Lucide Icons, and APIs generated via OpenAPI with Orval.
-

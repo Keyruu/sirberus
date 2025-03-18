@@ -91,20 +91,54 @@ func (s *SystemdService) GetUnitDetails(name string) (*types.SystemdServiceDetai
 	tasksMax := getUint32Property(props, "TasksMax")
 	tasks := getUint32Property(props, "TasksCurrent")
 
-	invocationID := getStringProperty(props, "InvocationID")
+	// Get InvocationID - it's stored as []uint8 in systemd
+	invocationID := ""
+	if invocationValue, exists := props["InvocationID"]; exists {
+		s.logger.Debug("InvocationID property found",
+			"service", name,
+			"type", fmt.Sprintf("%T", invocationValue))
+
+		// Handle the []uint8 type specifically
+		if bytes, ok := invocationValue.([]uint8); ok {
+			invocationID = formatUUID(bytes)
+			s.logger.Debug("Converted InvocationID",
+				"service", name,
+				"invocationID", invocationID)
+		} else {
+			// Unexpected type - log it for debugging
+			s.logger.Debug("InvocationID has unexpected type",
+				"service", name,
+				"type", fmt.Sprintf("%T", invocationValue),
+				"value", fmt.Sprintf("%v", invocationValue))
+		}
+	} else {
+		s.logger.Debug("InvocationID property not found in map",
+			"service", name,
+			"active_state", unit.ActiveState,
+			"sub_state", unit.SubState)
+	}
 	dropInPaths := getStringArrayProperty(props, "DropInPaths")
 	triggeredBy := getStringArrayProperty(props, "TriggeredBy")
 	docs := getStringArrayProperty(props, "Documentation")
 
 	mainProcess := ""
 	if mainPID > 0 {
-		mainProcess = getStringProperty(props, "ExecStart")
+		// Try to get the actual command line from /proc/{pid}/cmdline
+		if cmdline, err := readProcCmdline(mainPID); err == nil && cmdline != "" {
+			mainProcess = cmdline
+		} else {
+			// Fall back to ExecStart if we can't read from /proc
+			mainProcess = getStringProperty(props, "ExecStart")
+			s.logger.Debug("couldn't read process command line from /proc, using ExecStart instead",
+				"pid", mainPID,
+				"error", err)
+		}
 	}
 
 	since := ""
 	var uptimeSeconds int64 = 0
 	if timestamp := getUint64Property(props, "ActiveEnterTimestamp"); timestamp > 0 {
-		seconds := int64(timestamp / microsecondsPerSecond)
+		seconds := int64(timestamp / uint64(microsecondsPerSecond))
 		sinceTime := time.Unix(seconds, 0)
 		since = sinceTime.Format(time.RFC3339)
 
@@ -199,7 +233,7 @@ func (s *SystemdService) ListUnits() (*types.SystemdServiceList, error) {
 			props, err := conn.GetAllPropertiesContext(ctx, unit.Name)
 			if err == nil {
 				if timestamp := getUint64Property(props, "ActiveEnterTimestamp"); timestamp > 0 {
-					seconds := int64(timestamp / microsecondsPerSecond)
+					seconds := int64(timestamp / uint64(microsecondsPerSecond))
 					sinceTime := time.Unix(seconds, 0)
 					uptimeSeconds = int64(time.Since(sinceTime).Seconds())
 				}
@@ -257,6 +291,16 @@ func getUint64Property(props map[string]interface{}, name string) uint64 {
 	return 0
 }
 
+// getPropertyNames returns a list of all property names in the map
+// This is useful for debugging when a property is not found
+func getPropertyNames(props map[string]interface{}) []string {
+	names := make([]string, 0, len(props))
+	for name := range props {
+		names = append(names, name)
+	}
+	return names
+}
+
 type ServiceMetrics struct {
 	// CPU usage as percentage of a single core (can exceed 100% if using multiple cores)
 	CPUUsage float64
@@ -288,8 +332,17 @@ func (s *SystemdService) getServiceMetrics(ctx context.Context, unitName string)
 		}, nil
 	}
 
-	// Get CPU usage from cgroup
-	cpuPercentage, err := s.getCGroupCPUPercentage(cgroup)
+	// Get the service start time to detect restarts
+	var startTime time.Time
+	if timestamp := getUint64Property(props, "ActiveEnterTimestamp"); timestamp > 0 {
+		seconds := int64(timestamp / uint64(microsecondsPerSecond))
+		startTime = time.Unix(seconds, 0)
+	} else {
+		startTime = time.Now() // Fallback if timestamp not available
+	}
+
+	// Get CPU usage from cgroup, passing the service start time
+	cpuPercentage, isFirstMeasurement, err := s.getCGroupCPUPercentage(cgroup, startTime)
 	if err != nil {
 		s.logger.Error("failed to get CPU percentage from cgroup",
 			"service", unitName,
@@ -301,10 +354,25 @@ func (s *SystemdService) getServiceMetrics(ctx context.Context, unitName string)
 		}, nil
 	}
 
+	// If this is the first measurement, don't return 0 as it's misleading
+	// Instead, return null/undefined in the API by using -1 as a sentinel value
+	// The frontend will handle this special value
+	if isFirstMeasurement {
+		s.logger.Debug("First CPU measurement or service restarted, returning null value",
+			"service", unitName,
+			"cgroup", cgroup,
+			"startTime", startTime)
+		return &ServiceMetrics{
+			CPUUsage:    -1, // Special value to indicate no measurement yet
+			MemoryUsage: memBytes,
+		}, nil
+	}
+
 	s.logger.Debug("CPU usage from cgroup",
 		"service", unitName,
 		"cgroup", cgroup,
-		"percentage", cpuPercentage)
+		"percentage", cpuPercentage,
+		"startTime", startTime)
 
 	return &ServiceMetrics{
 		CPUUsage:    cpuPercentage,
@@ -321,11 +389,12 @@ var (
 )
 
 // getCGroupCPUPercentage gets CPU usage percentage from cgroup
-func (s *SystemdService) getCGroupCPUPercentage(cgroupPath string) (float64, error) {
+// Returns: CPU percentage, isFirstMeasurement flag, error
+func (s *SystemdService) getCGroupCPUPercentage(cgroupPath string, serviceStartTime time.Time) (float64, bool, error) {
 	// Get current CPU usage
 	currentUsage, isV2, err := s.readCGroupCPUUsage(cgroupPath)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
 	now := time.Now()
@@ -333,6 +402,26 @@ func (s *SystemdService) getCGroupCPUPercentage(cgroupPath string) (float64, err
 
 	// Check if we have a previous measurement
 	if prev, ok := prevCPUMeasurements[serviceKey]; ok {
+		// Check if the service was restarted after our last measurement
+		// If the service start time is newer than our last measurement, treat as first measurement
+		if serviceStartTime.After(prev.timestamp) {
+			s.logger.Debug("Service was restarted after last measurement, treating as first measurement",
+				"service", cgroupPath,
+				"serviceStartTime", serviceStartTime,
+				"lastMeasurementTime", prev.timestamp)
+
+			// Update the measurement with current values
+			prevCPUMeasurements[serviceKey] = struct {
+				cpuUsage  uint64
+				timestamp time.Time
+			}{
+				cpuUsage:  currentUsage,
+				timestamp: now,
+			}
+
+			return 0, true, nil
+		}
+
 		// Calculate time difference in seconds
 		timeDiffSec := now.Sub(prev.timestamp).Seconds()
 
@@ -367,7 +456,7 @@ func (s *SystemdService) getCGroupCPUPercentage(cgroupPath string) (float64, err
 				"percentage", cpuPercentage,
 				"isV2", isV2)
 
-			return cpuPercentage, nil
+			return cpuPercentage, false, nil
 		}
 	}
 
@@ -380,7 +469,7 @@ func (s *SystemdService) getCGroupCPUPercentage(cgroupPath string) (float64, err
 		timestamp: now,
 	}
 
-	return 0, nil
+	return 0, true, nil
 }
 
 // readCGroupCPUUsage reads CPU usage from cgroup (either v1 or v2)
@@ -478,4 +567,50 @@ func (s *SystemdService) readCGroupV1CPUUsage(cgroupPath string) (uint64, error)
 	}
 
 	return usageNs, nil
+}
+
+// formatUUID formats a byte array as a UUID string in the format "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+func formatUUID(bytes []byte) string {
+	if len(bytes) != 16 {
+		return fmt.Sprintf("%x", bytes) // Not a standard UUID, just return hex
+	}
+
+	return fmt.Sprintf("%x-%x-%x-%x-%x",
+		bytes[0:4],   // 8 chars
+		bytes[4:6],   // 4 chars
+		bytes[6:8],   // 4 chars
+		bytes[8:10],  // 4 chars
+		bytes[10:16], // 12 chars
+	)
+}
+
+// readProcCmdline reads the command line of a process from /proc/{pid}/cmdline
+func readProcCmdline(pid uint32) (string, error) {
+	cmdlinePath := fmt.Sprintf("/proc/%d/cmdline", pid)
+
+	// Check if the file exists
+	if _, err := os.Stat(cmdlinePath); err != nil {
+		return "", fmt.Errorf("cmdline file not found: %w", err)
+	}
+
+	// Read the file
+	data, err := os.ReadFile(cmdlinePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read cmdline: %w", err)
+	}
+
+	// Process cmdline - replace null bytes with spaces
+	// In /proc/{pid}/cmdline, arguments are separated by null bytes
+	for i, b := range data {
+		if b == 0 {
+			data[i] = ' '
+		}
+	}
+
+	cmdline := strings.TrimSpace(string(data))
+	if cmdline == "" {
+		return "", fmt.Errorf("empty cmdline")
+	}
+
+	return cmdline, nil
 }

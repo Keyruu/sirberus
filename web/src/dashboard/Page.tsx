@@ -41,6 +41,54 @@ function Page() {
 					</BreadcrumbItem>
 				</>
 			);
+		} else if (path.match(/^\/systemd\/[^/]+\/logs$/)) {
+			const serviceName = path.split('/')[2];
+			return (
+				<>
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to="/">Dashboard</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to="/systemd">Systemd Services</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to={`/systemd/${serviceName}`}>{serviceName}</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbPage>Logs</BreadcrumbPage>
+					</BreadcrumbItem>
+				</>
+			);
+		} else if (path.match(/^\/systemd\/[^/]+$/)) {
+			const serviceName = path.split('/')[2];
+			return (
+				<>
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to="/">Dashboard</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to="/systemd">Systemd Services</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbPage>{serviceName}</BreadcrumbPage>
+					</BreadcrumbItem>
+				</>
+			);
 		} else if (path === '/container') {
 			return (
 				<>

@@ -22,8 +22,27 @@ import (
 //	@BasePath		/api
 
 func main() {
+	// Set log level based on LOG_LEVEL environment variable
+	// Default to INFO if not set
+	logLevel := slog.LevelInfo
+	if envLevel := os.Getenv("LOG_LEVEL"); envLevel != "" {
+		switch strings.ToUpper(envLevel) {
+		case "DEBUG":
+			logLevel = slog.LevelDebug
+		case "INFO":
+			logLevel = slog.LevelInfo
+		case "WARN":
+			logLevel = slog.LevelWarn
+		case "ERROR":
+			logLevel = slog.LevelError
+		default:
+			// If invalid level, default to INFO and log a warning
+			println("Warning: Invalid LOG_LEVEL value. Using INFO level.")
+		}
+	}
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: logLevel,
 	}))
 	slog.SetDefault(logger)
 
