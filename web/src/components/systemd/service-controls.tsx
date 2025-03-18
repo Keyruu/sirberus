@@ -1,15 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { SystemdService } from '@/generated/model';
-import {
-	usePostSystemdNameRestart,
-	usePostSystemdNameStart,
-	usePostSystemdNameStop,
-} from '@/generated/systemd/systemd';
+import { useSystemdActions } from '@/hooks/use-systemd-actions';
 import { isServiceRunning } from '@/lib/utils';
 import { FileText, Play, RotateCcw, Square } from 'lucide-react';
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
-import { toast } from 'sonner';
 
 interface ServiceControlsProps {
 	serviceName: string;
@@ -28,82 +23,14 @@ export function ServiceControls({
 }: ServiceControlsProps) {
 	const navigate = useNavigate();
 
-	// Mutations for service actions
-	const startService = usePostSystemdNameStart();
-	const stopService = usePostSystemdNameStop();
-	const restartService = usePostSystemdNameRestart();
+	// Use the unified systemd actions hook
+	const { startService, stopService, restartService } = useSystemdActions();
 
 	// Handle service actions
 	const handleViewLogs = useCallback(() => {
 		if (!serviceName) return;
 		navigate(`/systemd/${serviceName}/logs`);
 	}, [navigate, serviceName]);
-
-	const handleStartService = useCallback(async () => {
-		if (!serviceName) return;
-
-		const toastId = toast.loading(`Starting service: ${serviceName}`, {
-			description: 'Please wait...',
-		});
-
-		try {
-			await startService.mutateAsync({ name: serviceName });
-			toast.success(`Service started: ${serviceName}`, {
-				id: toastId,
-			});
-			if (onRefresh) await onRefresh();
-		} catch (error) {
-			console.error('Failed to start service:', error);
-			toast.error(`Failed to start service: ${serviceName}`, {
-				id: toastId,
-				description: error instanceof Error ? error.message : 'Unknown error',
-			});
-		}
-	}, [startService, onRefresh, serviceName]);
-
-	const handleStopService = useCallback(async () => {
-		if (!serviceName) return;
-
-		const toastId = toast.loading(`Stopping service: ${serviceName}`, {
-			description: 'Please wait...',
-		});
-
-		try {
-			await stopService.mutateAsync({ name: serviceName });
-			toast.success(`Service stopped: ${serviceName}`, {
-				id: toastId,
-			});
-			if (onRefresh) await onRefresh();
-		} catch (error) {
-			console.error('Failed to stop service:', error);
-			toast.error(`Failed to stop service: ${serviceName}`, {
-				id: toastId,
-				description: error instanceof Error ? error.message : 'Unknown error',
-			});
-		}
-	}, [stopService, onRefresh, serviceName]);
-
-	const handleRestartService = useCallback(async () => {
-		if (!serviceName) return;
-
-		const toastId = toast.loading(`Restarting service: ${serviceName}`, {
-			description: 'Please wait...',
-		});
-
-		try {
-			await restartService.mutateAsync({ name: serviceName });
-			toast.success(`Service restarted: ${serviceName}`, {
-				id: toastId,
-			});
-			if (onRefresh) await onRefresh();
-		} catch (error) {
-			console.error('Failed to restart service:', error);
-			toast.error(`Failed to restart service: ${serviceName}`, {
-				id: toastId,
-				description: error instanceof Error ? error.message : 'Unknown error',
-			});
-		}
-	}, [restartService, onRefresh, serviceName]);
 
 	if (!service) return null;
 
@@ -117,17 +44,17 @@ export function ServiceControls({
 			)}
 
 			{!isServiceRunning(service) ? (
-				<Button variant="outline" onClick={handleStartService}>
+				<Button variant="outline" onClick={() => startService(serviceName, onRefresh)}>
 					<Play className="mr-2 h-4 w-4" />
 					Start
 				</Button>
 			) : (
 				<>
-					<Button variant="outline" onClick={handleStopService}>
+					<Button variant="outline" onClick={() => stopService(serviceName, onRefresh)}>
 						<Square className="mr-2 h-4 w-4" />
 						Stop
 					</Button>
-					<Button variant="outline" onClick={handleRestartService}>
+					<Button variant="outline" onClick={() => restartService(serviceName, onRefresh)}>
 						<RotateCcw className="mr-2 h-4 w-4" />
 						Restart
 					</Button>

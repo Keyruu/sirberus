@@ -1,5 +1,7 @@
+import { BulkActionBar } from '@/components/systemd/services/BulkActionBar';
+import { ServiceListHeader } from '@/components/systemd/services/ServiceListHeader';
+import { ServiceStatusBadge } from '@/components/systemd/services/ServiceStatusBadge';
 import { Alert, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable } from '@/components/ui/data-table';
@@ -13,75 +15,31 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SystemdService } from '@/generated/model';
-import {
-	useGetSystemd,
-	usePostSystemdNameRestart,
-	usePostSystemdNameStart,
-	usePostSystemdNameStop,
-} from '@/generated/systemd/systemd';
+import { useSystemdActions } from '@/hooks/use-systemd-actions';
+import { useSystemdServiceList } from '@/hooks/use-systemd-service-list';
 import { formatBytes, formatDuration, isServiceRunning } from '@/lib/utils';
 import { ColumnDef, Row } from '@tanstack/react-table';
-import {
-	Activity,
-	AlertCircle,
-	CheckCircle,
-	Clock,
-	FileText,
-	Info,
-	MoreHorizontal,
-	Play,
-	RotateCcw,
-	Square,
-} from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { AlertCircle, FileText, Info, MoreHorizontal, Play, RotateCcw, Square } from 'lucide-react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
-import { toast } from 'sonner';
 
 export default function SystemdPage() {
-	const [isRefreshing, setIsRefreshing] = useState(false);
-
-	const { data, isLoading, error, refetch } = useGetSystemd({
-		query: {
-			refetchInterval: 10000, // Refresh every 10 seconds
-			queryKey: ['systemd-services'],
-			retry: 3,
-			retryDelay: 1000,
-			// Don't refetch on window focus to prevent cancellation issues
-			refetchOnWindowFocus: false,
-		},
-		// Configure axios to handle cancellations better
-		axios: {
-			timeout: 30000, // 30 seconds timeout
-		},
-	});
-
-	// Mutations for service actions
-	const startService = usePostSystemdNameStart();
-	const stopService = usePostSystemdNameStop();
-	const restartService = usePostSystemdNameRestart();
-
-	// Handle manual refresh with UI feedback
-	const handleRefresh = useCallback(async () => {
-		setIsRefreshing(true);
-		try {
-			await refetch();
-		} catch (error) {
-			toast.error('Failed to refresh services', {
-				description: error instanceof Error ? error.message : 'Unknown error',
-			});
-		} finally {
-			// Reset refreshing state after a short delay
-			setTimeout(() => {
-				setIsRefreshing(false);
-			}, 100);
-		}
-	}, [refetch]);
-
-	const services = data?.data?.services || [];
-	const count = data?.data?.count || 0;
-
-	// Handle service actions
 	const navigate = useNavigate();
+
+	// Use our custom hooks
+	const { services, count, isLoading, error, refetch, isRefreshing, statusCounts } = useSystemdServiceList();
+
+	const { startService, stopService, restartService, bulkStartServices, bulkStopServices, bulkRestartServices } =
+		useSystemdActions();
+
+	// Service action handlers
+	const handleViewDetails = useCallback(
+		(service: SystemdService) => {
+			if (!service.name) return;
+			navigate(`/systemd/${service.name}`);
+		},
+		[navigate]
+	);
 
 	const handleViewLogs = useCallback(
 		(service: SystemdService) => {
@@ -91,245 +49,13 @@ export default function SystemdPage() {
 		[navigate]
 	);
 
-	const handleViewDetails = useCallback(
-		(service: SystemdService) => {
-			if (!service.name) return;
-			navigate(`/systemd/${service.name}`);
-		},
-		[navigate]
-	);
-
-	const handleStartService = useCallback(
-		async (service: SystemdService) => {
-			if (!service.name) return;
-
-			const toastId = toast.loading(`Starting service: ${service.name}`, {
-				description: 'Please wait...',
-			});
-
-			try {
-				await startService.mutateAsync({ name: service.name });
-				toast.success(`Service started: ${service.name}`, {
-					id: toastId,
-				});
-				refetch();
-			} catch (error) {
-				console.error('Failed to start service:', error);
-				toast.error(`Failed to start service: ${service.name}`, {
-					id: toastId,
-					description: error instanceof Error ? error.message : 'Unknown error',
-				});
-			}
-		},
-		[startService, refetch]
-	);
-
-	const handleStopService = useCallback(
-		async (service: SystemdService) => {
-			if (!service.name) return;
-
-			const toastId = toast.loading(`Stopping service: ${service.name}`, {
-				description: 'Please wait...',
-			});
-
-			try {
-				await stopService.mutateAsync({ name: service.name });
-				toast.success(`Service stopped: ${service.name}`, {
-					id: toastId,
-				});
-				refetch();
-			} catch (error) {
-				console.error('Failed to stop service:', error);
-				toast.error(`Failed to stop service: ${service.name}`, {
-					id: toastId,
-					description: error instanceof Error ? error.message : 'Unknown error',
-				});
-			}
-		},
-		[stopService, refetch]
-	);
-
-	const handleRestartService = useCallback(
-		async (service: SystemdService) => {
-			if (!service.name) return;
-
-			const toastId = toast.loading(`Restarting service: ${service.name}`, {
-				description: 'Please wait...',
-			});
-
-			try {
-				await restartService.mutateAsync({ name: service.name });
-				toast.success(`Service restarted: ${service.name}`, {
-					id: toastId,
-				});
-				refetch();
-			} catch (error) {
-				console.error('Failed to restart service:', error);
-				toast.error(`Failed to restart service: ${service.name}`, {
-					id: toastId,
-					description: error instanceof Error ? error.message : 'Unknown error',
-				});
-			}
-		},
-		[restartService, refetch]
-	);
-
-	// Bulk actions
-	const handleBulkStart = useCallback(
-		async (rows: Row<SystemdService>[]) => {
-			const services = rows.map(row => row.original).filter(service => service.name);
-
-			if (services.length === 0) {
-				toast.warning('No valid services selected');
-				return;
-			}
-
-			const toastId = toast.loading(`Starting ${services.length} services...`);
-			let successCount = 0;
-			let failCount = 0;
-
-			for (const service of services) {
-				try {
-					if (service.name) {
-						await startService.mutateAsync({ name: service.name });
-						successCount++;
-					}
-				} catch (error) {
-					console.error(`Failed to start service ${service.name || 'unknown'}:`, error);
-					failCount++;
-				}
-			}
-
-			if (failCount === 0) {
-				toast.success(`Successfully started ${successCount} services`, { id: toastId });
-			} else if (successCount === 0) {
-				toast.error(`Failed to start all ${failCount} services`, { id: toastId });
-			} else {
-				toast.warning(`Started ${successCount} services, failed to start ${failCount} services`, { id: toastId });
-			}
-
-			refetch();
-		},
-		[startService, refetch]
-	);
-
-	const handleBulkStop = useCallback(
-		async (rows: Row<SystemdService>[]) => {
-			const services = rows.map(row => row.original).filter(service => service.name);
-
-			if (services.length === 0) {
-				toast.warning('No valid services selected');
-				return;
-			}
-
-			const toastId = toast.loading(`Stopping ${services.length} services...`);
-			let successCount = 0;
-			let failCount = 0;
-
-			for (const service of services) {
-				try {
-					if (service.name) {
-						await stopService.mutateAsync({ name: service.name });
-						successCount++;
-					}
-				} catch (error) {
-					console.error(`Failed to stop service ${service.name || 'unknown'}:`, error);
-					failCount++;
-				}
-			}
-
-			if (failCount === 0) {
-				toast.success(`Successfully stopped ${successCount} services`, { id: toastId });
-			} else if (successCount === 0) {
-				toast.error(`Failed to stop all ${failCount} services`, { id: toastId });
-			} else {
-				toast.warning(`Stopped ${successCount} services, failed to stop ${failCount} services`, { id: toastId });
-			}
-
-			refetch();
-		},
-		[stopService, refetch]
-	);
-
-	const handleBulkRestart = useCallback(
-		async (rows: Row<SystemdService>[]) => {
-			const services = rows.map(row => row.original).filter(service => service.name);
-
-			if (services.length === 0) {
-				toast.warning('No valid services selected');
-				return;
-			}
-
-			const toastId = toast.loading(`Restarting ${services.length} services...`);
-			let successCount = 0;
-			let failCount = 0;
-
-			for (const service of services) {
-				try {
-					if (service.name) {
-						await restartService.mutateAsync({ name: service.name });
-						successCount++;
-					}
-				} catch (error) {
-					console.error(`Failed to restart service ${service.name || 'unknown'}:`, error);
-					failCount++;
-				}
-			}
-
-			if (failCount === 0) {
-				toast.success(`Successfully restarted ${successCount} services`, { id: toastId });
-			} else if (successCount === 0) {
-				toast.error(`Failed to restart all ${failCount} services`, { id: toastId });
-			} else {
-				toast.warning(`Restarted ${successCount} services, failed to restart ${failCount} services`, { id: toastId });
-			}
-
-			refetch();
-		},
-		[restartService, refetch]
-	);
-
-	function getStatusBadge(activeState?: string, subState?: string) {
-		const service: SystemdService = { activeState, subState };
-
-		if (isServiceRunning(service)) {
-			return (
-				<Badge className="bg-green-500">
-					<CheckCircle className="mr-1 h-3 w-3" /> Running
-				</Badge>
-			);
-		}
-		if (activeState === 'active') {
-			return (
-				<Badge className="bg-blue-500">
-					<Activity className="mr-1 h-3 w-3" /> Active
-				</Badge>
-			);
-		}
-		if (activeState === 'inactive') {
-			return (
-				<Badge className="bg-gray-500">
-					<Clock className="mr-1 h-3 w-3" /> Inactive
-				</Badge>
-			);
-		}
-		if (activeState === 'failed') {
-			return (
-				<Badge className="bg-red-500">
-					<AlertCircle className="mr-1 h-3 w-3" /> Failed
-				</Badge>
-			);
-		}
-		return <Badge className="bg-yellow-500">{activeState || 'Unknown'}</Badge>;
-	}
-
 	// Define columns for the data table
 	const columns: ColumnDef<SystemdService>[] = [
 		{
 			id: 'select',
 			header: ({ table }) => (
 				<Checkbox
-					checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')}
+					checked={table.getIsAllPageRowsSelected() || table.getIsSomePageRowsSelected()}
 					onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
 					aria-label="Select all"
 				/>
@@ -351,7 +77,7 @@ export default function SystemdPage() {
 				<Button
 					variant="link"
 					className="p-0 h-auto font-medium text-foreground hover:underline hover:cursor-pointer"
-					onClick={() => navigate(`/systemd/${row.getValue('name')}`)}
+					onClick={() => handleViewDetails(row.original)}
 				>
 					{row.getValue('name')}
 				</Button>
@@ -369,7 +95,7 @@ export default function SystemdPage() {
 			header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
 			cell: ({ row }) => (
 				<div>
-					{getStatusBadge(row.original.activeState, row.original.subState)}
+					<ServiceStatusBadge service={row.original} />
 					{row.original.subState && row.original.subState !== 'running' && (
 						<span className="ml-2 text-xs text-muted-foreground">{row.original.subState}</span>
 					)}
@@ -419,9 +145,7 @@ export default function SystemdPage() {
 			header: ({ column }) => <DataTableColumnHeader column={column} title="Memory" />,
 			cell: ({ row }) => {
 				const service = row.original;
-
 				if (!isServiceRunning(service)) return <div>-</div>;
-
 				return <div>{service.memoryUsage !== undefined ? formatBytes(service.memoryUsage) : '-'}</div>;
 			},
 			enableSorting: true,
@@ -431,21 +155,11 @@ export default function SystemdPage() {
 			header: ({ column }) => <DataTableColumnHeader column={column} title="CPU" />,
 			cell: ({ row }) => {
 				const service = row.original;
-
 				if (!isServiceRunning(service)) return <div>-</div>;
-
 				const cpuUsage = service.cpuUsage;
-
-				// Handle special cases
 				if (cpuUsage === undefined) return <div>-</div>;
-
-				// Special value -1 indicates first measurement (no data yet)
 				if (cpuUsage === -1) return <div className="text-muted-foreground">Measuring...</div>;
-
-				// Format CPU usage as percentage with 2 decimal places
-				const formattedCPU = cpuUsage.toFixed(2);
-
-				return <div>{formattedCPU}%</div>;
+				return <div>{cpuUsage.toFixed(2)}%</div>;
 			},
 			enableSorting: true,
 		},
@@ -455,7 +169,6 @@ export default function SystemdPage() {
 			cell: ({ row }) => {
 				const uptime = row.original.uptime;
 				if (uptime === undefined || uptime <= 0) return <div>-</div>;
-
 				return <div>{formatDuration(uptime)}</div>;
 			},
 			enableSorting: true,
@@ -485,17 +198,17 @@ export default function SystemdPage() {
 							View Logs
 						</DropdownMenuItem>
 						{!isRunning ? (
-							<DropdownMenuItem onClick={() => handleStartService(service)}>
+							<DropdownMenuItem onClick={() => startService(service.name || '', refetch)}>
 								<Play className="mr-2 h-4 w-4" />
 								Start
 							</DropdownMenuItem>
 						) : (
 							<>
-								<DropdownMenuItem onClick={() => handleStopService(service)}>
+								<DropdownMenuItem onClick={() => stopService(service.name || '', refetch)}>
 									<Square className="mr-2 h-4 w-4" />
 									Stop
 								</DropdownMenuItem>
-								<DropdownMenuItem onClick={() => handleRestartService(service)}>
+								<DropdownMenuItem onClick={() => restartService(service.name || '', refetch)}>
 									<RotateCcw className="mr-2 h-4 w-4" />
 									Restart
 								</DropdownMenuItem>
@@ -505,42 +218,30 @@ export default function SystemdPage() {
 				</DropdownMenu>
 			);
 		},
-		[handleViewDetails, handleViewLogs, handleStartService, handleStopService, handleRestartService]
+		[handleViewDetails, handleViewLogs, startService, stopService, restartService, refetch]
 	);
 
 	// Bulk actions component for the data table
 	const renderBulkActions = useCallback(
 		(rows: Row<SystemdService>[]) => {
+			const selectedServices = rows.map(row => row.original);
+
 			return (
-				<>
-					<Button variant="outline" size="sm" onClick={() => handleBulkStart(rows)}>
-						<Play className="mr-2 h-4 w-4" />
-						Start
-					</Button>
-					<Button variant="outline" size="sm" onClick={() => handleBulkStop(rows)}>
-						<Square className="mr-2 h-4 w-4" />
-						Stop
-					</Button>
-					<Button variant="outline" size="sm" onClick={() => handleBulkRestart(rows)}>
-						<RotateCcw className="mr-2 h-4 w-4" />
-						Restart
-					</Button>
-				</>
+				<BulkActionBar
+					selectedCount={rows.length}
+					onBulkStart={() => bulkStartServices(selectedServices, refetch)}
+					onBulkStop={() => bulkStopServices(selectedServices, refetch)}
+					onBulkRestart={() => bulkRestartServices(selectedServices, refetch)}
+				/>
 			);
 		},
-		[handleBulkStart, handleBulkStop, handleBulkRestart]
+		[bulkStartServices, bulkStopServices, bulkRestartServices, refetch]
 	);
 
 	return (
 		<div className="p-6">
-			<div className="flex items-center justify-between mb-4">
-				<h1 className="text-2xl font-bold">Systemd Services</h1>
-				{!isLoading && !error && (
-					<Badge variant="outline" className="text-sm">
-						{count} services
-					</Badge>
-				)}
-			</div>
+			<ServiceListHeader title="Systemd Services" count={count} isLoading={isLoading} />
+
 			{isLoading ? (
 				<div className="space-y-3">
 					<Skeleton className="h-8 w-full" />
@@ -553,7 +254,7 @@ export default function SystemdPage() {
 					<AlertCircle className="h-4 w-4" />
 					<AlertTitle>
 						<span>Failed to load systemd services</span>
-						<Button variant="outline" size="sm" onClick={() => handleRefresh()} className="mt-2">
+						<Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">
 							Try Again
 						</Button>
 					</AlertTitle>
@@ -576,25 +277,25 @@ export default function SystemdPage() {
 								{
 									label: 'Running',
 									value: 'active:running',
-									count: services.filter(s => isServiceRunning(s)).length,
+									count: statusCounts.running,
 								},
 								{
 									label: 'Active',
 									value: 'active',
-									count: services.filter(s => s.activeState === 'active' && s.subState !== 'running').length,
+									count: statusCounts.active,
 								},
 								{
 									label: 'Inactive',
 									value: 'inactive',
-									count: services.filter(s => s.activeState === 'inactive').length,
+									count: statusCounts.inactive,
 								},
 								{
 									label: 'Failed',
 									value: 'failed',
-									count: services.filter(s => s.activeState === 'failed').length,
+									count: statusCounts.failed,
 								},
 							]}
-							onRefresh={handleRefresh}
+							onRefresh={refetch}
 							isLoading={isLoading || isRefreshing}
 						/>
 					)}
