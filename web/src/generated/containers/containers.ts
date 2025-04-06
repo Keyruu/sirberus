@@ -5,14 +5,17 @@
  * API for managing systemd services and containers
  * OpenAPI spec version: 1.0
  */
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type {
 	DataTag,
 	DefinedInitialDataOptions,
 	DefinedUseQueryResult,
+	MutationFunction,
 	QueryFunction,
 	QueryKey,
 	UndefinedInitialDataOptions,
+	UseMutationOptions,
+	UseMutationResult,
 	UseQueryOptions,
 	UseQueryResult,
 } from '@tanstack/react-query';
@@ -20,7 +23,7 @@ import type {
 import * as axios from 'axios';
 import type { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-import type { ContainerList, ErrorResponse } from '.././model';
+import type { Container, ContainerList, ErrorResponse, Message } from '.././model';
 
 /**
  * Get a list of all containers
@@ -116,3 +119,252 @@ export function useGetContainer<
 
 	return query;
 }
+
+/**
+ * Get detailed information about a specific container
+ * @summary Get container details
+ */
+export const getContainerId = (id: string, options?: AxiosRequestConfig): Promise<AxiosResponse<Container>> => {
+	return axios.default.get(`/container/${id}`, options);
+};
+
+export const getGetContainerIdQueryKey = (id: string) => {
+	return [`/container/${id}`] as const;
+};
+
+export const getGetContainerIdQueryOptions = <
+	TData = Awaited<ReturnType<typeof getContainerId>>,
+	TError = AxiosError<ErrorResponse>,
+>(
+	id: string,
+	options?: {
+		query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getContainerId>>, TError, TData>>;
+		axios?: AxiosRequestConfig;
+	}
+) => {
+	const { query: queryOptions, axios: axiosOptions } = options ?? {};
+
+	const queryKey = queryOptions?.queryKey ?? getGetContainerIdQueryKey(id);
+
+	const queryFn: QueryFunction<Awaited<ReturnType<typeof getContainerId>>> = ({ signal }) =>
+		getContainerId(id, { signal, ...axiosOptions });
+
+	return { queryKey, queryFn, enabled: !!id, ...queryOptions } as UseQueryOptions<
+		Awaited<ReturnType<typeof getContainerId>>,
+		TError,
+		TData
+	> & { queryKey: DataTag<QueryKey, TData, TError> };
+};
+
+export type GetContainerIdQueryResult = NonNullable<Awaited<ReturnType<typeof getContainerId>>>;
+export type GetContainerIdQueryError = AxiosError<ErrorResponse>;
+
+export function useGetContainerId<
+	TData = Awaited<ReturnType<typeof getContainerId>>,
+	TError = AxiosError<ErrorResponse>,
+>(
+	id: string,
+	options: {
+		query: Partial<UseQueryOptions<Awaited<ReturnType<typeof getContainerId>>, TError, TData>> &
+			Pick<
+				DefinedInitialDataOptions<
+					Awaited<ReturnType<typeof getContainerId>>,
+					TError,
+					Awaited<ReturnType<typeof getContainerId>>
+				>,
+				'initialData'
+			>;
+		axios?: AxiosRequestConfig;
+	}
+): DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetContainerId<
+	TData = Awaited<ReturnType<typeof getContainerId>>,
+	TError = AxiosError<ErrorResponse>,
+>(
+	id: string,
+	options?: {
+		query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getContainerId>>, TError, TData>> &
+			Pick<
+				UndefinedInitialDataOptions<
+					Awaited<ReturnType<typeof getContainerId>>,
+					TError,
+					Awaited<ReturnType<typeof getContainerId>>
+				>,
+				'initialData'
+			>;
+		axios?: AxiosRequestConfig;
+	}
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+export function useGetContainerId<
+	TData = Awaited<ReturnType<typeof getContainerId>>,
+	TError = AxiosError<ErrorResponse>,
+>(
+	id: string,
+	options?: {
+		query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getContainerId>>, TError, TData>>;
+		axios?: AxiosRequestConfig;
+	}
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+/**
+ * @summary Get container details
+ */
+
+export function useGetContainerId<
+	TData = Awaited<ReturnType<typeof getContainerId>>,
+	TError = AxiosError<ErrorResponse>,
+>(
+	id: string,
+	options?: {
+		query?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getContainerId>>, TError, TData>>;
+		axios?: AxiosRequestConfig;
+	}
+): UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+	const queryOptions = getGetContainerIdQueryOptions(id, options);
+
+	const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+		queryKey: DataTag<QueryKey, TData, TError>;
+	};
+
+	query.queryKey = queryOptions.queryKey;
+
+	return query;
+}
+
+/**
+ * Restart a container
+ * @summary Restart container
+ */
+export const postContainerIdRestart = (id: string, options?: AxiosRequestConfig): Promise<AxiosResponse<Message>> => {
+	return axios.default.post(`/container/${id}/restart`, undefined, options);
+};
+
+export const getPostContainerIdRestartMutationOptions = <
+	TError = AxiosError<ErrorResponse>,
+	TContext = unknown,
+>(options?: {
+	mutation?: UseMutationOptions<Awaited<ReturnType<typeof postContainerIdRestart>>, TError, { id: string }, TContext>;
+	axios?: AxiosRequestConfig;
+}): UseMutationOptions<Awaited<ReturnType<typeof postContainerIdRestart>>, TError, { id: string }, TContext> => {
+	const mutationKey = ['postContainerIdRestart'];
+	const { mutation: mutationOptions, axios: axiosOptions } = options
+		? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+			? options
+			: { ...options, mutation: { ...options.mutation, mutationKey } }
+		: { mutation: { mutationKey }, axios: undefined };
+
+	const mutationFn: MutationFunction<Awaited<ReturnType<typeof postContainerIdRestart>>, { id: string }> = props => {
+		const { id } = props ?? {};
+
+		return postContainerIdRestart(id, axiosOptions);
+	};
+
+	return { mutationFn, ...mutationOptions };
+};
+
+export type PostContainerIdRestartMutationResult = NonNullable<Awaited<ReturnType<typeof postContainerIdRestart>>>;
+
+export type PostContainerIdRestartMutationError = AxiosError<ErrorResponse>;
+
+/**
+ * @summary Restart container
+ */
+export const usePostContainerIdRestart = <TError = AxiosError<ErrorResponse>, TContext = unknown>(options?: {
+	mutation?: UseMutationOptions<Awaited<ReturnType<typeof postContainerIdRestart>>, TError, { id: string }, TContext>;
+	axios?: AxiosRequestConfig;
+}): UseMutationResult<Awaited<ReturnType<typeof postContainerIdRestart>>, TError, { id: string }, TContext> => {
+	const mutationOptions = getPostContainerIdRestartMutationOptions(options);
+
+	return useMutation(mutationOptions);
+};
+/**
+ * Start a container
+ * @summary Start container
+ */
+export const postContainerIdStart = (id: string, options?: AxiosRequestConfig): Promise<AxiosResponse<Message>> => {
+	return axios.default.post(`/container/${id}/start`, undefined, options);
+};
+
+export const getPostContainerIdStartMutationOptions = <
+	TError = AxiosError<ErrorResponse>,
+	TContext = unknown,
+>(options?: {
+	mutation?: UseMutationOptions<Awaited<ReturnType<typeof postContainerIdStart>>, TError, { id: string }, TContext>;
+	axios?: AxiosRequestConfig;
+}): UseMutationOptions<Awaited<ReturnType<typeof postContainerIdStart>>, TError, { id: string }, TContext> => {
+	const mutationKey = ['postContainerIdStart'];
+	const { mutation: mutationOptions, axios: axiosOptions } = options
+		? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+			? options
+			: { ...options, mutation: { ...options.mutation, mutationKey } }
+		: { mutation: { mutationKey }, axios: undefined };
+
+	const mutationFn: MutationFunction<Awaited<ReturnType<typeof postContainerIdStart>>, { id: string }> = props => {
+		const { id } = props ?? {};
+
+		return postContainerIdStart(id, axiosOptions);
+	};
+
+	return { mutationFn, ...mutationOptions };
+};
+
+export type PostContainerIdStartMutationResult = NonNullable<Awaited<ReturnType<typeof postContainerIdStart>>>;
+
+export type PostContainerIdStartMutationError = AxiosError<ErrorResponse>;
+
+/**
+ * @summary Start container
+ */
+export const usePostContainerIdStart = <TError = AxiosError<ErrorResponse>, TContext = unknown>(options?: {
+	mutation?: UseMutationOptions<Awaited<ReturnType<typeof postContainerIdStart>>, TError, { id: string }, TContext>;
+	axios?: AxiosRequestConfig;
+}): UseMutationResult<Awaited<ReturnType<typeof postContainerIdStart>>, TError, { id: string }, TContext> => {
+	const mutationOptions = getPostContainerIdStartMutationOptions(options);
+
+	return useMutation(mutationOptions);
+};
+/**
+ * Stop a container
+ * @summary Stop container
+ */
+export const postContainerIdStop = (id: string, options?: AxiosRequestConfig): Promise<AxiosResponse<Message>> => {
+	return axios.default.post(`/container/${id}/stop`, undefined, options);
+};
+
+export const getPostContainerIdStopMutationOptions = <
+	TError = AxiosError<ErrorResponse>,
+	TContext = unknown,
+>(options?: {
+	mutation?: UseMutationOptions<Awaited<ReturnType<typeof postContainerIdStop>>, TError, { id: string }, TContext>;
+	axios?: AxiosRequestConfig;
+}): UseMutationOptions<Awaited<ReturnType<typeof postContainerIdStop>>, TError, { id: string }, TContext> => {
+	const mutationKey = ['postContainerIdStop'];
+	const { mutation: mutationOptions, axios: axiosOptions } = options
+		? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+			? options
+			: { ...options, mutation: { ...options.mutation, mutationKey } }
+		: { mutation: { mutationKey }, axios: undefined };
+
+	const mutationFn: MutationFunction<Awaited<ReturnType<typeof postContainerIdStop>>, { id: string }> = props => {
+		const { id } = props ?? {};
+
+		return postContainerIdStop(id, axiosOptions);
+	};
+
+	return { mutationFn, ...mutationOptions };
+};
+
+export type PostContainerIdStopMutationResult = NonNullable<Awaited<ReturnType<typeof postContainerIdStop>>>;
+
+export type PostContainerIdStopMutationError = AxiosError<ErrorResponse>;
+
+/**
+ * @summary Stop container
+ */
+export const usePostContainerIdStop = <TError = AxiosError<ErrorResponse>, TContext = unknown>(options?: {
+	mutation?: UseMutationOptions<Awaited<ReturnType<typeof postContainerIdStop>>, TError, { id: string }, TContext>;
+	axios?: AxiosRequestConfig;
+}): UseMutationResult<Awaited<ReturnType<typeof postContainerIdStop>>, TError, { id: string }, TContext> => {
+	const mutationOptions = getPostContainerIdStopMutationOptions(options);
+
+	return useMutation(mutationOptions);
+};

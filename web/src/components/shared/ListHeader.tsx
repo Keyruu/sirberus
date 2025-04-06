@@ -1,18 +1,18 @@
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '../ui/badge';
 
-interface ServiceListHeaderProps {
+interface ListHeaderProps {
 	title: string;
-	count?: number;
+	count: number;
 	isLoading: boolean;
 }
 
-export function ServiceListHeader({ title, count, isLoading }: ServiceListHeaderProps) {
+export function ListHeader({ title, count, isLoading }: ListHeaderProps) {
 	return (
 		<div className="flex items-center justify-between mb-4">
 			<h1 className="text-2xl font-bold">{title}</h1>
 			{!isLoading && count !== undefined && (
 				<Badge variant="outline" className="text-sm">
-					{count} services
+					{count} {title.toLowerCase()}
 				</Badge>
 			)}
 		</div>

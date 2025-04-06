@@ -7,9 +7,14 @@
  */
 
 export * from './container';
+export * from './containerExecRequest';
+export * from './containerLabels';
 export * from './containerList';
+export * from './containerNetworks';
 export * from './errorResponse';
 export * from './message';
+export * from './mount';
+export * from './networkConfig';
 export * from './sSEvent';
 export * from './systemdService';
 export * from './systemdServiceDetails';

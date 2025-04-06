@@ -44,6 +44,14 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 			"unit", unitName,
 			"lines", count)
 
+		// Check if context is already canceled
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			// Continue with normal operation
+		}
+
 		// Start journalctl process with appropriate flags
 		// -u: unit name
 		// -f: follow (real-time updates)
@@ -67,6 +75,10 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 
 		// Start the command
 		if err := cmd.Start(); err != nil {
+			if ctx.Err() != nil {
+				// Context was canceled, just return
+				return
+			}
 			errCh <- fmt.Errorf("failed to start journalctl: %w", err)
 			return
 		}
@@ -99,13 +111,12 @@ func (s *SystemdService) StreamServiceLogs(ctx context.Context, unitName string,
 			select {
 			case logCh <- entry:
 			case <-ctx.Done():
-				// Context canceled, stop processing
+				// Context canceled, stop processing gracefully
 				if cmd.Process != nil {
 					if err := cmd.Process.Kill(); err != nil {
 						s.logger.Warn("failed to kill journalctl process on context done", "error", err)
 					}
 				}
-				errCh <- ctx.Err()
 				return
 			}
 		}

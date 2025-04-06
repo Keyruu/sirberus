@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 
+	"github.com/Keyruu/sirberus/internal/api/common"
 	"github.com/Keyruu/sirberus/internal/systemd"
 	"github.com/Keyruu/sirberus/internal/types"
 	"github.com/gin-gonic/gin"
@@ -35,32 +35,10 @@ func NewSystemdHandler(logger *slog.Logger) (*SystemdHandler, error) {
 func (h *SystemdHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("", h.listServices)
 	rg.GET("/:name", h.getService)
-	rg.GET("/:name/stream", h.streamService)
 	rg.GET("/:name/logs", h.streamServiceLogs)
 	rg.POST("/:name/start", h.startService)
 	rg.POST("/:name/stop", h.stopService)
 	rg.POST("/:name/restart", h.restartService)
-}
-
-func (h *SystemdHandler) handleError(c *gin.Context, err error, name string, operation string) bool {
-	if err == nil {
-		return false
-	}
-
-	if strings.Contains(err.Error(), "not found") {
-		c.JSON(http.StatusNotFound, types.ErrorResponse{
-			Error: fmt.Sprintf("Service %s not found", name),
-		})
-		return true
-	}
-
-	h.logger.Error(fmt.Sprintf("failed to %s service", operation),
-		"service", name,
-		"error", err)
-	c.JSON(http.StatusInternalServerError, types.ErrorResponse{
-		Error: err.Error(),
-	})
-	return true
 }
 
 // @Summary		Start service
@@ -75,7 +53,8 @@ func (h *SystemdHandler) handleError(c *gin.Context, err error, name string, ope
 func (h *SystemdHandler) startService(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 
-	if err := h.service.StartUnit(name); h.handleError(c, err, name, "start") {
+	err := h.service.StartUnit(name)
+	if common.HandleError(c, err, name, "start service", h.logger, "Service %s not found") {
 		return
 	}
 
@@ -98,7 +77,8 @@ func (h *SystemdHandler) startService(c *gin.Context) {
 func (h *SystemdHandler) stopService(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 
-	if err := h.service.StopUnit(name); h.handleError(c, err, name, "stop") {
+	err := h.service.StopUnit(name)
+	if common.HandleError(c, err, name, "stop service", h.logger, "Service %s not found") {
 		return
 	}
 
@@ -121,7 +101,8 @@ func (h *SystemdHandler) stopService(c *gin.Context) {
 func (h *SystemdHandler) restartService(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 
-	if err := h.service.RestartUnit(name); h.handleError(c, err, name, "restart") {
+	err := h.service.RestartUnit(name)
+	if common.HandleError(c, err, name, "restart service", h.logger, "Service %s not found") {
 		return
 	}
 
@@ -139,90 +120,6 @@ func getServiceName(name string) string {
 	return name
 }
 
-func setupSSE(c *gin.Context) {
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("Transfer-Encoding", "chunked")
-}
-
-// @Summary		Stream service updates
-// @Description	Stream real-time updates about a systemd service
-// @Tags			systemd, sse
-// @Produce		text/event-stream
-// @Param			name	path		string	true	"Service name"
-// @Success		200		{object}	types.SSEvent
-// @Failure		404		{object}	types.SSEvent
-// @Failure		500		{object}	types.SSEvent
-// @Router			/systemd/{name}/stream [get]
-func (h *SystemdHandler) streamService(c *gin.Context) {
-	name := getServiceName(c.Param("name"))
-	setupSSE(c)
-
-	clientGone := c.Request.Context().Done()
-
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-
-	if err := h.sendServiceDetails(c, name); err != nil {
-		h.logger.Error("failed to send initial service details",
-			"service", name,
-			"error", err)
-		return
-	}
-
-	for {
-		select {
-		case <-ticker.C:
-			if err := h.sendServiceDetails(c, name); err != nil {
-				h.logger.Error("failed to send service details update",
-					"service", name,
-					"error", err)
-				return
-			}
-			c.Writer.Flush()
-		case <-clientGone:
-			h.logger.Info("client disconnected from service stream",
-				"service", name)
-			return
-		}
-	}
-}
-
-func (h *SystemdHandler) sendServiceDetails(c *gin.Context, name string) error {
-	details, err := h.service.GetUnitDetails(name)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			event := types.SSEvent{
-				Type:    "error",
-				Content: fmt.Sprintf("Service %s not found", name),
-			}
-			c.SSEvent(event.Type, event.Content)
-			return err
-		}
-		h.logger.Error("failed to get service details",
-			"service", name,
-			"error", err)
-		event := types.SSEvent{
-			Type:    "error",
-			Content: err.Error(),
-		}
-		c.SSEvent(event.Type, event.Content)
-		return err
-	}
-
-	event := types.SSEvent{
-		Type:    "message",
-		Content: details,
-	}
-	c.SSEvent(event.Type, event.Content)
-	return nil
-}
-
-const (
-	defaultLogLines = 100
-)
-
 // @Summary		Stream service logs
 // @Description	Stream logs from a systemd service (always includes real-time updates)
 // @Tags			systemd, sse
@@ -235,9 +132,9 @@ const (
 // @Router			/systemd/{name}/logs [get]
 func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
-	setupSSE(c)
+	common.SetupSSE(c)
 
-	numLines := h.parseLogQueryParams(c)
+	numLines := common.ParseLogQueryParams(c, h.logger)
 
 	ctx, cancel := context.WithCancel(c.Request.Context())
 	defer cancel()
@@ -252,20 +149,6 @@ func (h *SystemdHandler) streamServiceLogs(c *gin.Context) {
 	h.handleLogStreaming(ctx, c, logCh, errCh, name)
 }
 
-func (h *SystemdHandler) parseLogQueryParams(c *gin.Context) int {
-	numLines := defaultLogLines
-	if linesParam := c.Query("lines"); linesParam != "" {
-		if n, err := fmt.Sscanf(linesParam, "%d", &numLines); err != nil || n != 1 {
-			h.logger.Warn("invalid lines parameter, using default",
-				"value", linesParam,
-				"default", defaultLogLines)
-			numLines = defaultLogLines
-		}
-	}
-
-	return numLines
-}
-
 func (h *SystemdHandler) handleLogStreaming(
 	ctx context.Context,
 	c *gin.Context,
@@ -273,132 +156,7 @@ func (h *SystemdHandler) handleLogStreaming(
 	errCh <-chan error,
 	serviceName string,
 ) {
-	// Create a heartbeat ticker to ensure the connection stays alive
-	heartbeatTicker := time.NewTicker(5 * time.Second)
-	defer heartbeatTicker.Stop()
-
-	// Create a service status checker ticker
-	statusCheckTicker := time.NewTicker(2 * time.Second)
-	defer statusCheckTicker.Stop()
-
-	// Track the last time we sent a log
-	lastLogTime := time.Now()
-	noLogThreshold := 10 * time.Second
-
-	// Track if we've detected a service restart
-	var serviceRestarted bool
-	var lastActiveState string
-
-	for {
-		select {
-		case log, ok := <-logCh:
-			if !ok {
-				h.logger.Info("log channel closed", "service", serviceName)
-				return
-			}
-			logEvent := types.SSEvent{
-				Type:    "log",
-				Content: log,
-			}
-			c.SSEvent(logEvent.Type, logEvent.Content)
-			c.Writer.Flush()
-			lastLogTime = time.Now()
-
-		case err, ok := <-errCh:
-			if !ok {
-				continue
-			}
-			h.logger.Error("error streaming logs",
-				"service", serviceName,
-				"error", err)
-			errorEvent := types.SSEvent{
-				Type:    "error",
-				Content: err.Error(),
-			}
-			c.SSEvent(errorEvent.Type, errorEvent.Content)
-			c.Writer.Flush()
-
-			// Don't return on error, try to continue streaming
-			// Only return if the context is done
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				// Continue streaming
-			}
-
-		case <-heartbeatTicker.C:
-			// Send a heartbeat event to keep the connection alive
-			heartbeatEvent := types.SSEvent{
-				Type:    "heartbeat",
-				Content: time.Now().Format(time.RFC3339),
-			}
-			c.SSEvent(heartbeatEvent.Type, heartbeatEvent.Content)
-			c.Writer.Flush()
-
-			// Check if we haven't received logs for a while
-			if time.Since(lastLogTime) > noLogThreshold && serviceRestarted {
-				h.logger.Info("no logs received for a while after service restart, recreating log stream",
-					"service", serviceName,
-					"time_since_last_log", time.Since(lastLogTime).String())
-
-				// Create a new context that will be canceled when the original context is done
-				newCtx, cancel := context.WithCancel(ctx)
-				go func() {
-					<-ctx.Done()
-					cancel()
-				}()
-
-				// Get a new log stream
-				newLogCh, newErrCh := h.service.StreamServiceLogs(newCtx, serviceName, true, 10)
-
-				// Replace the channels
-				logCh = newLogCh
-				errCh = newErrCh
-
-				// Reset flags
-				serviceRestarted = false
-				lastLogTime = time.Now()
-			}
-
-		case <-statusCheckTicker.C:
-			// Check the service status to detect restarts
-			details, err := h.service.GetUnitDetails(serviceName)
-			if err != nil {
-				h.logger.Warn("failed to get service details during status check",
-					"service", serviceName,
-					"error", err)
-				continue
-			}
-
-			currentState := details.Service.ActiveState
-
-			// If the state changed from inactive to active, it might indicate a restart
-			if lastActiveState == "inactive" && currentState == "active" {
-				h.logger.Info("detected service restart",
-					"service", serviceName,
-					"previous_state", lastActiveState,
-					"current_state", currentState)
-
-				serviceRestarted = true
-
-				// Send a notification to the client
-				restartEvent := types.SSEvent{
-					Type:    "service_restart",
-					Content: "Service has been restarted",
-				}
-				c.SSEvent(restartEvent.Type, restartEvent.Content)
-				c.Writer.Flush()
-			}
-
-			lastActiveState = currentState
-
-		case <-ctx.Done():
-			h.logger.Info("client disconnected from log stream",
-				"service", serviceName)
-			return
-		}
-	}
+	common.HandleStreamingOutput(ctx, c, logCh, errCh, serviceName, h.logger)
 }
 
 // @Summary		Get systemd service details
@@ -413,7 +171,7 @@ func (h *SystemdHandler) handleLogStreaming(
 func (h *SystemdHandler) getService(c *gin.Context) {
 	name := getServiceName(c.Param("name"))
 	details, err := h.service.GetUnitDetails(name)
-	if h.handleError(c, err, name, "get details for") {
+	if common.HandleError(c, err, name, "get details for service", h.logger, "Service %s not found") {
 		return
 	}
 
@@ -431,11 +189,7 @@ func (h *SystemdHandler) getService(c *gin.Context) {
 // @Router			/systemd [get]
 func (h *SystemdHandler) listServices(c *gin.Context) {
 	services, err := h.service.ListUnits()
-	if err != nil {
-		h.logger.Error("failed to list services", "error", err)
-		c.JSON(http.StatusInternalServerError, types.ErrorResponse{
-			Error: err.Error(),
-		})
+	if common.HandleError(c, err, "", "list services", h.logger, "") {
 		return
 	}
 

@@ -11,11 +11,7 @@ interface LogsStatus {
 	error: string | null;
 }
 
-/**
- * Custom hook for managing systemd service logs
- * Handles EventSource creation, log state management, and streaming control
- */
-export function useSystemdLogs(serviceName: string, numLines: string) {
+export function useContainerLogs(containerId: string, numLines: string) {
 	const [logs, setLogs] = useState<LogEntry[]>([]);
 	const [status, setStatus] = useState<LogsStatus>({
 		isStreaming: true,
@@ -25,7 +21,7 @@ export function useSystemdLogs(serviceName: string, numLines: string) {
 
 	// Function to start streaming logs
 	const startStreaming = useCallback(() => {
-		if (!serviceName) return;
+		if (!containerId) return;
 
 		// Close existing connection if any
 		if (eventSourceRef.current) {
@@ -37,7 +33,7 @@ export function useSystemdLogs(serviceName: string, numLines: string) {
 
 		try {
 			// Create a new EventSource connection
-			const eventSourceUrl = `/api/systemd/${serviceName}/logs?lines=${numLines}`;
+			const eventSourceUrl = `/api/container/${containerId}/logs?lines=${numLines}`;
 
 			// Check if EventSource is supported
 			if (typeof EventSource === 'undefined') {
@@ -58,11 +54,11 @@ export function useSystemdLogs(serviceName: string, numLines: string) {
 				try {
 					const logText = event.data || '';
 
-					// Parse the log entry (format: "YYYY-MM-DDTHH:MM:SS+00:00: Message content")
-					const timestampEndIndex = logText.indexOf(': ');
+					// Parse the log entry (format may differ from systemd logs)
+					const timestampEndIndex = logText.indexOf(' ');
 					if (timestampEndIndex > 0) {
 						const timestamp = logText.substring(0, timestampEndIndex);
-						const message = logText.substring(timestampEndIndex + 2);
+						const message = logText.substring(timestampEndIndex + 1);
 
 						setLogs(prevLogs => [...prevLogs, { timestamp, message }]);
 					} else {
@@ -83,20 +79,7 @@ export function useSystemdLogs(serviceName: string, numLines: string) {
 			// Handle error events
 			eventSource.addEventListener('error', (event: Event & { data?: string }) => {
 				console.error('EventSource error:', event);
-				console.error('EventSource readyState on error:', eventSource.readyState);
-
-				// Check if the connection was closed
-				if (eventSource.readyState === 2) {
-					console.error('EventSource connection closed due to error');
-				}
-
-				// Try to get more information about the error
-				const target = event.target as EventSource;
-				console.error('EventSource target:', target);
-
 				const errorMessage = event.data || 'Failed to connect to log stream';
-				console.error('Error message:', errorMessage);
-
 				setStatus({ isStreaming: false, error: errorMessage });
 				eventSource.close();
 			});
@@ -112,7 +95,7 @@ export function useSystemdLogs(serviceName: string, numLines: string) {
 				error: 'Failed to connect to log stream',
 			});
 		}
-	}, [serviceName, numLines]);
+	}, [containerId, numLines]);
 
 	// Function to stop streaming logs
 	const stopStreaming = useCallback(() => {
@@ -142,12 +125,12 @@ export function useSystemdLogs(serviceName: string, numLines: string) {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement('a');
 		a.href = url;
-		a.download = `${serviceName}-logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+		a.download = `container-${containerId}-logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
 		document.body.appendChild(a);
 		a.click();
 		document.body.removeChild(a);
 		URL.revokeObjectURL(url);
-	}, [logs, serviceName]);
+	}, [logs, containerId]);
 
 	// Start streaming logs on component mount
 	useEffect(() => {

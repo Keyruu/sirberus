@@ -1,12 +1,12 @@
 import { BulkActionBar as SharedBulkActionBar } from '@/components/shared/actions/BulkActionBar';
 
-interface BulkActionBarProps {
+interface ContainerBulkActionBarProps {
 	selectedCount: number;
 	onBulkStart: () => void;
 	onBulkStop: () => void;
 	onBulkRestart: () => void;
 }
 
-export function BulkActionBar(props: BulkActionBarProps) {
-	return <SharedBulkActionBar {...props} itemName="service" />;
+export function ContainerBulkActionBar(props: ContainerBulkActionBarProps) {
+	return <SharedBulkActionBar {...props} itemName="container" />;
 }

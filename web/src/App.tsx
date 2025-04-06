@@ -1,5 +1,7 @@
 import Page from '@/dashboard/Page.tsx';
-import ContainerPage from '@/pages/ContainerPage';
+import { ContainerPage } from '@/pages/ContainerPage';
+import { ContainerDetailsPage } from '@/pages/ContainerDetailsPage';
+import { ContainerLogsPage } from '@/pages/ContainerLogsPage';
 import HomePage from '@/pages/HomePage';
 import SystemdPage from '@/pages/SystemdPage';
 import SystemdLogsPage from '@/pages/SystemdLogsPage';
@@ -25,6 +27,8 @@ function App() {
 							<Route path="systemd/:serviceName" element={<SystemdServiceDetailsPage />} />
 							<Route path="systemd/:serviceName/logs" element={<SystemdLogsPage />} />
 							<Route path="container" element={<ContainerPage />} />
+							<Route path="container/:containerId" element={<ContainerDetailsPage />} />
+							<Route path="container/:containerId/logs" element={<ContainerLogsPage />} />
 						</Route>
 					</Routes>
 				</BrowserRouter>

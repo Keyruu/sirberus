@@ -1,12 +1,4 @@
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
-import { FileWarning } from 'lucide-react';
-import { useEffect, useRef } from 'react';
-
-interface LogEntry {
-	timestamp: string;
-	message: string;
-}
+import { BaseLogsDisplay, type LogEntry } from '@/components/shared/logs/BaseLogsDisplay';
 
 interface LogsDisplayProps {
 	logs: LogEntry[];
@@ -16,61 +8,12 @@ interface LogsDisplayProps {
 }
 
 export function LogsDisplay({ logs, isLoading, isStreaming, isAutoScrollEnabled }: LogsDisplayProps) {
-	const logsContainerRef = useRef<HTMLDivElement>(null);
-
-	// Auto-scroll to bottom when new logs arrive
-	useEffect(() => {
-		if (isAutoScrollEnabled && logsContainerRef.current) {
-			logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
-		}
-	}, [logs, isAutoScrollEnabled]);
-
-	if (isLoading) {
-		return (
-			<div className="space-y-3">
-				<Skeleton className="h-8 w-full" />
-				<Skeleton className="h-20 w-full" />
-				<Skeleton className="h-20 w-full" />
-			</div>
-		);
-	}
-
 	return (
-		<div
-			ref={logsContainerRef}
-			className="h-[calc(100vh-250px)] overflow-y-auto border rounded-md bg-black text-gray-200 font-mono text-sm p-4"
-		>
-			{logs.length === 0 ? (
-				<div className="flex items-center justify-center h-full">
-					<Alert variant="info" className="max-w-md">
-						<FileWarning className="h-4 w-4" />
-						<AlertTitle>{isStreaming ? 'Waiting for logs...' : 'No logs available'}</AlertTitle>
-						<AlertDescription>
-							{isStreaming
-								? 'Log entries will appear here as they are received from the service.'
-								: 'There are no log entries to display for this service.'}
-						</AlertDescription>
-					</Alert>
-				</div>
-			) : (
-				<div className="space-y-1">
-					{logs.map((log, index) => (
-						<LogEntry key={index} log={log} />
-					))}
-				</div>
-			)}
-		</div>
-	);
-}
-
-interface LogEntryProps {
-	log: LogEntry;
-}
-
-function LogEntry({ log }: LogEntryProps) {
-	return (
-		<div className="whitespace-pre-wrap break-all">
-			<span className="text-blue-400">{log.timestamp}</span>: {log.message}
-		</div>
+		<BaseLogsDisplay
+			logs={logs}
+			isLoading={isLoading}
+			isStreaming={isStreaming}
+			isAutoScrollEnabled={isAutoScrollEnabled}
+		/>
 	);
 }

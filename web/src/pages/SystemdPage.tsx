@@ -1,5 +1,5 @@
+import { ListHeader } from '@/components/shared/ListHeader';
 import { BulkActionBar } from '@/components/systemd/services/BulkActionBar';
-import { ServiceListHeader } from '@/components/systemd/services/ServiceListHeader';
 import { ServiceStatusBadge } from '@/components/systemd/services/ServiceStatusBadge';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -240,7 +240,7 @@ export default function SystemdPage() {
 
 	return (
 		<div className="p-6">
-			<ServiceListHeader title="Systemd Services" count={count} isLoading={isLoading} />
+			<ListHeader title="Services" count={count} isLoading={isLoading} />
 
 			{isLoading ? (
 				<div className="space-y-3">

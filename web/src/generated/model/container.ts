@@ -5,6 +5,9 @@
  * API for managing systemd services and containers
  * OpenAPI spec version: 1.0
  */
+import type { ContainerLabels } from './containerLabels';
+import type { Mount } from './mount';
+import type { ContainerNetworks } from './containerNetworks';
 
 export interface Container {
 	/** Command running in the container */
@@ -13,16 +16,24 @@ export interface Container {
 	cpuUsage?: number;
 	/** Creation time */
 	created?: string;
+	/** Container environment variables */
+	environment?: string[];
 	/** Short container ID */
 	id?: string;
 	/** Container image */
 	image?: string;
 	/** Whether the container is currently running */
 	isRunning?: boolean;
+	/** Container labels */
+	labels?: ContainerLabels;
 	/** Memory usage in bytes */
 	memoryUsage?: number;
+	/** Container mount points */
+	mounts?: Mount[];
 	/** Container name */
 	name?: string;
+	/** Container network configurations */
+	networks?: ContainerNetworks;
 	/** Exposed ports */
 	ports?: string;
 	/** Container size */

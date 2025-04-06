@@ -11,6 +11,11 @@ definitions:
       created:
         description: Creation time
         type: string
+      environment:
+        description: Container environment variables
+        items:
+          type: string
+        type: array
       id:
         description: Short container ID
         type: string
@@ -20,12 +25,27 @@ definitions:
       isRunning:
         description: Whether the container is currently running
         type: boolean
+      labels:
+        additionalProperties:
+          type: string
+        description: Container labels
+        type: object
       memoryUsage:
         description: Memory usage in bytes
         type: integer
+      mounts:
+        description: Container mount points
+        items:
+          $ref: '#/definitions/Mount'
+        type: array
       name:
         description: Container name
         type: string
+      networks:
+        additionalProperties:
+          $ref: '#/definitions/NetworkConfig'
+        description: Container network configurations
+        type: object
       ports:
         description: Exposed ports
         type: string
@@ -34,6 +54,12 @@ definitions:
         type: string
       status:
         description: Container status
+        type: string
+    type: object
+  ContainerExecRequest:
+    properties:
+      command:
+        description: Command to execute
         type: string
     type: object
   ContainerList:
@@ -55,6 +81,30 @@ definitions:
   Message:
     properties:
       message:
+        type: string
+    type: object
+  Mount:
+    properties:
+      destination:
+        description: Destination path in container
+        type: string
+      mode:
+        description: Mount mode (ro, rw)
+        type: string
+      source:
+        description: Source path on host
+        type: string
+    type: object
+  NetworkConfig:
+    properties:
+      gateway:
+        description: Network gateway
+        type: string
+      ipAddress:
+        description: Network IP address
+        type: string
+      macAddress:
+        description: Network MAC address
         type: string
     type: object
   SSEvent:
@@ -188,6 +238,184 @@ paths:
       summary: List containers
       tags:
       - containers
+  /container/{id}:
+    get:
+      description: Get detailed information about a specific container
+      parameters:
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Container'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Get container details
+      tags:
+      - containers
+  /container/{id}/exec:
+    post:
+      consumes:
+      - application/json
+      description: Execute a command in a container and stream the output
+      parameters:
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Command to execute
+        in: body
+        name: command
+        required: true
+        schema:
+          $ref: '#/definitions/ContainerExecRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SSEvent'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/SSEvent'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/SSEvent'
+      summary: Execute command in container
+      tags:
+      - containers
+      - sse
+  /container/{id}/logs:
+    get:
+      description: Stream logs from a container (always includes real-time updates)
+      parameters:
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 100
+        description: Number of historical log lines to return before streaming new
+          ones
+        in: query
+        name: lines
+        type: integer
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SSEvent'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/SSEvent'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/SSEvent'
+      summary: Stream container logs
+      tags:
+      - containers
+      - sse
+  /container/{id}/restart:
+    post:
+      description: Restart a container
+      parameters:
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Message'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Restart container
+      tags:
+      - containers
+  /container/{id}/start:
+    post:
+      description: Start a container
+      parameters:
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Message'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Start container
+      tags:
+      - containers
+  /container/{id}/stop:
+    post:
+      description: Stop a container
+      parameters:
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Message'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Stop container
+      tags:
+      - containers
   /systemd:
     get:
       description: Get a list of all systemd services
@@ -234,20 +462,16 @@ paths:
       - systemd
   /systemd/{name}/logs:
     get:
-      description: Stream logs from a systemd service
+      description: Stream logs from a systemd service (always includes real-time updates)
       parameters:
       - description: Service name
         in: path
         name: name
         required: true
         type: string
-      - default: true
-        description: Follow logs in real-time
-        in: query
-        name: follow
-        type: boolean
       - default: 100
-        description: Number of log lines to return
+        description: Number of historical log lines to return before streaming new
+          ones
         in: query
         name: lines
         type: integer
@@ -351,32 +575,4 @@ paths:
       summary: Stop service
       tags:
       - systemd
-  /systemd/{name}/stream:
-    get:
-      description: Stream real-time updates about a systemd service
-      parameters:
-      - description: Service name
-        in: path
-        name: name
-        required: true
-        type: string
-      produces:
-      - text/event-stream
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/SSEvent'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/SSEvent'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/SSEvent'
-      summary: Stream service updates
-      tags:
-      - systemd
-      - sse
 swagger: "2.0"
