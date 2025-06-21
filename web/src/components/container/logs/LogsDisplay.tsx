@@ -2,8 +2,18 @@ import { BaseLogsDisplay, type LogEntry } from '@/components/shared/logs/BaseLog
 
 interface LogsDisplayProps {
 	logs: LogEntry[];
+	isLoading?: boolean;
+	isStreaming?: boolean;
+	isAutoScrollEnabled?: boolean;
 }
 
-export function LogsDisplay({ logs }: LogsDisplayProps) {
-	return <BaseLogsDisplay logs={logs} height="h-[600px]" className="bg-muted text-muted-foreground" />;
+export function LogsDisplay({ logs, isLoading, isStreaming, isAutoScrollEnabled }: LogsDisplayProps) {
+	return (
+		<BaseLogsDisplay
+			logs={logs}
+			isLoading={isLoading}
+			isStreaming={isStreaming}
+			isAutoScrollEnabled={isAutoScrollEnabled}
+		/>
+	);
 }

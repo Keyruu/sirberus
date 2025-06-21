@@ -1,35 +1,91 @@
 import { Badge } from '@/components/ui/badge';
 import { Container } from '@/generated/model';
+import { Activity, AlertCircle, CheckCircle, Clock, Pause, RotateCcw, Square, Trash2 } from 'lucide-react';
 
 interface ContainerStatusBadgeProps {
 	container: Container;
 }
 
 export function ContainerStatusBadge({ container }: ContainerStatusBadgeProps) {
-	const status = container.status?.toLowerCase() || '';
+	const status = container.status;
+	const state = status?.state?.toLowerCase() || '';
+
 	const statusElement = (() => {
-		if (container.isRunning) {
-			return <Badge variant="default">Running</Badge>;
+		if (status?.running) {
+			return (
+				<Badge className="bg-green-500">
+					<CheckCircle className="mr-1 h-3 w-3" /> Running
+				</Badge>
+			);
 		}
 
-		if (status.includes('exited')) {
-			return <Badge variant="destructive">Exited</Badge>;
+		if (state === 'exited') {
+			return (
+				<Badge className="bg-red-500">
+					<Square className="mr-1 h-3 w-3" /> Exited
+				</Badge>
+			);
 		}
 
-		if (status.includes('created')) {
-			return <Badge variant="secondary">Created</Badge>;
+		if (state === 'created') {
+			return (
+				<Badge className="bg-gray-500">
+					<Clock className="mr-1 h-3 w-3" /> Created
+				</Badge>
+			);
 		}
 
-		return <Badge variant="outline">{container.status || 'Unknown'}</Badge>;
+		if (state === 'paused') {
+			return (
+				<Badge className="bg-gray-500">
+					<Pause className="mr-1 h-3 w-3" /> Paused
+				</Badge>
+			);
+		}
+
+		if (state === 'restarting') {
+			return (
+				<Badge className="bg-green-500">
+					<RotateCcw className="mr-1 h-3 w-3" /> Restarting
+				</Badge>
+			);
+		}
+
+		if (state === 'removing') {
+			return (
+				<Badge className="bg-gray-500">
+					<Trash2 className="mr-1 h-3 w-3" /> Removing
+				</Badge>
+			);
+		}
+
+		if (state === 'dead') {
+			return (
+				<Badge className="bg-red-500">
+					<AlertCircle className="mr-1 h-3 w-3" /> Dead
+				</Badge>
+			);
+		}
+
+		return (
+			<Badge className="bg-gray-500">
+				<Activity className="mr-1 h-3 w-3" /> {status?.state || 'Unknown'}
+			</Badge>
+		);
 	})();
 
-	// Extract additional status details (e.g., exit code)
+	// Extract additional status details
 	const statusDetails = (() => {
-		if (status.includes('exited')) {
-			const match = status.match(/exited \((\d+)\)/i);
-			if (match) return `Exit Code: ${match[1]}`;
+		if (state === 'exited' && status?.exitCode !== undefined) {
+			return `Exit Code: ${status.exitCode}`;
 		}
-		return status.replace(/^(running|exited|created)/i, '').trim();
+		if (status?.error) {
+			return `Error: ${status.error}`;
+		}
+		if (status?.oomKilled) {
+			return 'OOM Killed';
+		}
+		return null;
 	})();
 
 	return (

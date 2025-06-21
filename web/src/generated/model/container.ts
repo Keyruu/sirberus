@@ -8,6 +8,7 @@
 import type { ContainerLabels } from './containerLabels';
 import type { Mount } from './mount';
 import type { ContainerNetworks } from './containerNetworks';
+import type { ContainerStatus } from './containerStatus';
 
 export interface Container {
 	/** Command running in the container */
@@ -22,7 +23,7 @@ export interface Container {
 	id?: string;
 	/** Container image */
 	image?: string;
-	/** Whether the container is currently running */
+	/** Whether the container is currently running (deprecated, use Status.Running) */
 	isRunning?: boolean;
 	/** Container labels */
 	labels?: ContainerLabels;
@@ -38,6 +39,6 @@ export interface Container {
 	ports?: string;
 	/** Container size */
 	size?: string;
-	/** Container status */
-	status?: string;
+	/** Container status information */
+	status?: ContainerStatus;
 }

@@ -16,6 +16,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { Button } from './button';
 
 interface DataTableProps<TData, TValue> {
@@ -42,14 +43,27 @@ export function DataTable<TData, TValue>({
 	rowActions,
 	bulkActions,
 }: DataTableProps<TData, TValue>) {
+	const [searchParams, setSearchParams] = useSearchParams();
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 	const [rowSelection, setRowSelection] = useState({});
+
+	// Initialize pagination from URL params or defaults
+	const initialPageIndex = parseInt(searchParams.get('page') || '1') - 1;
+	const initialPageSize = parseInt(searchParams.get('pageSize') || pageSize.toString());
 	const [pagination, setPagination] = useState({
-		pageIndex: 0,
-		pageSize,
+		pageIndex: Math.max(0, initialPageIndex),
+		pageSize: pageSizeOptions.includes(initialPageSize) ? initialPageSize : pageSize,
 	});
+
+	// Update URL params when pagination changes
+	useEffect(() => {
+		const newParams = new URLSearchParams(searchParams);
+		newParams.set('page', (pagination.pageIndex + 1).toString());
+		newParams.set('pageSize', pagination.pageSize.toString());
+		setSearchParams(newParams, { replace: true });
+	}, [pagination.pageIndex, pagination.pageSize, searchParams, setSearchParams]);
 
 	const table = useReactTable({
 		data,

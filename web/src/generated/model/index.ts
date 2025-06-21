@@ -11,6 +11,7 @@ export * from './containerExecRequest';
 export * from './containerLabels';
 export * from './containerList';
 export * from './containerNetworks';
+export * from './containerStatus';
 export * from './errorResponse';
 export * from './message';
 export * from './mount';

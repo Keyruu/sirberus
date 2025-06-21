@@ -21,10 +21,9 @@ import { formatBytes } from '@/lib/utils';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import { AlertCircle, FileText, Info, MoreHorizontal, Play, RotateCcw, Square } from 'lucide-react';
 import { useCallback } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 
 export function ContainerPage() {
-	const navigate = useNavigate();
 	const { containers, count, isLoading, error, refetch, isRefreshing, statusCounts } = useContainerList();
 	const {
 		startContainer,
@@ -34,23 +33,6 @@ export function ContainerPage() {
 		bulkStopContainers,
 		bulkRestartContainers,
 	} = useContainerActions();
-
-	// Container action handlers
-	const handleViewDetails = useCallback(
-		(container: Container) => {
-			if (!container.id) return;
-			navigate(`/container/${container.id}`);
-		},
-		[navigate]
-	);
-
-	const handleViewLogs = useCallback(
-		(container: Container) => {
-			if (!container.id) return;
-			navigate(`/container/${container.id}/logs`);
-		},
-		[navigate]
-	);
 
 	// Define columns for the data table
 	const columns: ColumnDef<Container>[] = [
@@ -94,12 +76,23 @@ export function ContainerPage() {
 			filterFn: (row, _, filterValue) => {
 				if (!filterValue) return true;
 
+				const container = row.original;
+				const status = container.status;
+
 				if (Array.isArray(filterValue)) {
 					if (filterValue.length === 0) return true;
-					return filterValue.includes(row.original.status);
+					return filterValue.some(value => {
+						if (value === 'running') return status?.running || false;
+						if (value === 'exited') return status?.state === 'exited' || false;
+						if (value === 'created') return status?.state === 'created' || false;
+						return status?.state?.toLowerCase().includes(value.toLowerCase()) || false;
+					});
 				}
 
-				return row.original.status === filterValue;
+				if (filterValue === 'running') return status?.running || false;
+				if (filterValue === 'exited') return status?.state === 'exited' || false;
+				if (filterValue === 'created') return status?.state === 'created' || false;
+				return status?.state?.toLowerCase().includes(filterValue.toLowerCase()) || false;
 			},
 		},
 		{
@@ -113,7 +106,7 @@ export function ContainerPage() {
 			header: ({ column }) => <DataTableColumnHeader column={column} title="Memory" />,
 			cell: ({ row }) => {
 				const container = row.original;
-				if (!container.isRunning) return <div>-</div>;
+				if (!container.status?.running) return <div>-</div>;
 				return <div>{container.memoryUsage ? formatBytes(container.memoryUsage) : '-'}</div>;
 			},
 			enableSorting: true,
@@ -123,7 +116,7 @@ export function ContainerPage() {
 			header: ({ column }) => <DataTableColumnHeader column={column} title="CPU" />,
 			cell: ({ row }) => {
 				const container = row.original;
-				if (!container.isRunning) return <div>-</div>;
+				if (!container.status?.running) return <div>-</div>;
 				const cpuUsage = container.cpuUsage;
 				if (cpuUsage === undefined) return <div>-</div>;
 				return <div>{(cpuUsage / 1e9).toFixed(2)}%</div>;
@@ -145,15 +138,19 @@ export function ContainerPage() {
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
-						<DropdownMenuItem onClick={() => handleViewDetails(container)}>
-							<Info className="mr-2 h-4 w-4" />
-							View Details
+						<DropdownMenuItem asChild>
+							<Link to={`/container/${container.id}`} className="font-medium hover:underline">
+								<Info className="mr-2 h-4 w-4" />
+								View Details
+							</Link>
 						</DropdownMenuItem>
-						<DropdownMenuItem onClick={() => handleViewLogs(container)}>
-							<FileText className="mr-2 h-4 w-4" />
-							View Logs
+						<DropdownMenuItem asChild>
+							<Link to={`/container/${container.id}/logs`} className="font-medium hover:underline">
+								<FileText className="mr-2 h-4 w-4" />
+								View Logs
+							</Link>
 						</DropdownMenuItem>
-						{!container.isRunning ? (
+						{!container.status?.running ? (
 							<DropdownMenuItem onClick={() => startContainer(container.id || '', refetch)}>
 								<Play className="mr-2 h-4 w-4" />
 								Start
@@ -174,7 +171,7 @@ export function ContainerPage() {
 				</DropdownMenu>
 			);
 		},
-		[handleViewDetails, handleViewLogs, startContainer, stopContainer, restartContainer, refetch]
+		[startContainer, stopContainer, restartContainer, refetch]
 	);
 
 	// Bulk actions component for the data table

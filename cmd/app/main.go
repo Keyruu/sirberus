@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	_ "github.com/Keyruu/sirberus/docs"
+	docs "github.com/Keyruu/sirberus/docs"
 	"github.com/Keyruu/sirberus/internal/api"
 	"github.com/Keyruu/sirberus/internal/types"
 	"github.com/Keyruu/sirberus/web"
@@ -69,6 +69,7 @@ func main() {
 	containerGroup := apiGroup.Group("/container")
 	containerHandler.RegisterRoutes(containerGroup)
 
+	docs.SwaggerInfo.Host = "localhost:9733"
 	apiGroup.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	assetsFS, err := web.AssetsFS()

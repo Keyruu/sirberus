@@ -52,9 +52,9 @@ export function useContainerList(options: UseContainerListOptions = {}) {
 	// Calculate status counts
 	const statusCounts = useMemo(() => {
 		return {
-			running: containers.filter(c => c.isRunning).length,
-			exited: containers.filter(c => !c.isRunning && c.status?.toLowerCase().includes('exited')).length,
-			created: containers.filter(c => !c.isRunning && c.status?.toLowerCase().includes('created')).length,
+			running: containers.filter(c => c.status?.running).length,
+			exited: containers.filter(c => c.status?.state === 'exited').length,
+			created: containers.filter(c => c.status?.state === 'created').length,
 		};
 	}, [containers]);
 
@@ -75,13 +75,11 @@ export function useContainerList(options: UseContainerListOptions = {}) {
 		// Apply status filter
 		if (statusFilter) {
 			if (statusFilter === 'running') {
-				result = result.filter(container => container.isRunning);
+				result = result.filter(container => container.status?.running);
 			} else if (statusFilter === 'exited') {
-				result = result.filter(container => !container.isRunning && container.status?.toLowerCase().includes('exited'));
+				result = result.filter(container => container.status?.state === 'exited');
 			} else if (statusFilter === 'created') {
-				result = result.filter(
-					container => !container.isRunning && container.status?.toLowerCase().includes('created')
-				);
+				result = result.filter(container => container.status?.state === 'created');
 			}
 		}
 

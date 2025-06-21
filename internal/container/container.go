@@ -131,7 +131,7 @@ func (s *ContainerService) ListContainers(ctx context.Context) (types.ContainerL
 			Image:       c.Image,
 			Command:     fmt.Sprintf("%s %s", inspect.Path, strings.Join(inspect.Args, " ")),
 			Created:     createdTime,
-			Status:      c.Status,
+			Status:      buildContainerStatus(inspect.State, c.Status),
 			Ports:       ports,
 			IsRunning:   inspect.State.Running,
 			CPUUsage:    cpuUsage,
@@ -243,7 +243,7 @@ func (s *ContainerService) GetContainerDetails(ctx context.Context, id string) (
 		Image:       inspect.Config.Image,
 		Command:     fmt.Sprintf("%s %s", inspect.Path, strings.Join(inspect.Args, " ")),
 		Created:     createdTime,
-		Status:      inspect.State.Status,
+		Status:      buildContainerStatus(inspect.State, inspect.State.Status),
 		Ports:       ports,
 		IsRunning:   inspect.State.Running,
 		CPUUsage:    cpuUsage,
@@ -459,4 +459,22 @@ func (s *ContainerService) ExecInContainer(ctx context.Context, id string, comma
 	}()
 
 	return outputCh, errCh
+}
+
+// buildContainerStatus converts Docker's container.State and status message to our ContainerStatus
+func buildContainerStatus(state *container.State, statusMessage string) types.ContainerStatus {
+	return types.ContainerStatus{
+		State:      state.Status,
+		Running:    state.Running,
+		Paused:     state.Paused,
+		Restarting: state.Restarting,
+		OOMKilled:  state.OOMKilled,
+		Dead:       state.Dead,
+		Pid:        state.Pid,
+		ExitCode:   state.ExitCode,
+		Error:      state.Error,
+		StartedAt:  state.StartedAt,
+		FinishedAt: state.FinishedAt,
+		Message:    statusMessage,
+	}
 }

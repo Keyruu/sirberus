@@ -103,6 +103,54 @@ function Page() {
 					</BreadcrumbItem>
 				</>
 			);
+		} else if (path.match(/^\/container\/[^/]+\/logs$/)) {
+			const containerId = path.split('/')[2];
+			return (
+				<>
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to="/">Dashboard</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to="/container">Container Management</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to={`/container/${containerId}`}>{containerId}</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbPage>Logs</BreadcrumbPage>
+					</BreadcrumbItem>
+				</>
+			);
+		} else if (path.match(/^\/container\/[^/]+$/)) {
+			const containerId = path.split('/')[2];
+			return (
+				<>
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to="/">Dashboard</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbLink asChild>
+							<Link to="/container">Container Management</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbPage>{containerId}</BreadcrumbPage>
+					</BreadcrumbItem>
+				</>
+			);
 		}
 
 		return null;

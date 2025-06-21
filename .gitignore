@@ -3,3 +3,6 @@
 .vscode
 .cursor
 tmp
+
+# TypeScript build cache
+*.tsbuildinfo

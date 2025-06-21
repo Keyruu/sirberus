@@ -23,7 +23,7 @@ definitions:
         description: Container image
         type: string
       isRunning:
-        description: Whether the container is currently running
+        description: Whether the container is currently running (deprecated, use Status.Running)
         type: boolean
       labels:
         additionalProperties:
@@ -53,8 +53,9 @@ definitions:
         description: Container size
         type: string
       status:
-        description: Container status
-        type: string
+        allOf:
+        - $ref: '#/definitions/ContainerStatus'
+        description: Container status information
     type: object
   ContainerExecRequest:
     properties:
@@ -72,6 +73,47 @@ definitions:
       count:
         description: Total count of containers
         type: integer
+    type: object
+  ContainerStatus:
+    properties:
+      dead:
+        description: Whether the container is dead
+        type: boolean
+      error:
+        description: Error message if any
+        type: string
+      exitCode:
+        description: Exit code if the container has exited
+        type: integer
+      finishedAt:
+        description: When the container finished (RFC3339 format)
+        type: string
+      message:
+        description: Human-readable status message (e.g., "Up 2 minutes", "Exited
+          (0) 5 minutes ago")
+        type: string
+      oomKilled:
+        description: Whether the container was killed due to OOM
+        type: boolean
+      paused:
+        description: Whether the container is paused
+        type: boolean
+      pid:
+        description: Process ID of the container
+        type: integer
+      restarting:
+        description: Whether the container is restarting
+        type: boolean
+      running:
+        description: Whether the container is currently running
+        type: boolean
+      startedAt:
+        description: When the container was started (RFC3339 format)
+        type: string
+      state:
+        description: Container state (e.g., "created", "running", "paused", "restarting",
+          "removing", "exited", "dead")
+        type: string
     type: object
   ErrorResponse:
     properties:

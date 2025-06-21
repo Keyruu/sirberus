@@ -135,8 +135,8 @@ func TestWithRealContainer(t *testing.T) {
 		}
 
 		// The status should be different after restart
-		if details.Status == initialStatus {
-			t.Logf("Warning: Container status unchanged after restart: %s", details.Status)
+		if details.Status.State == initialStatus.State && details.Status.Message == initialStatus.Message {
+			t.Logf("Warning: Container status unchanged after restart: %s", details.Status.Message)
 		}
 	})
 
