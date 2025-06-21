@@ -4,6 +4,11 @@
   <img src="web/public/sirberus-logo.png" alt="Sirberus Logo" width="200">
 </div>
 
+> [!CAUTION]
+> **⚠️ EXPERIMENTAL SOFTWARE - DO NOT EXPOSE TO UNTRUSTED NETWORKS**
+> 
+> Sirberus is experimental software that provides extensive control over systemd services and Docker/Podman containers. This service grants significant system-level privileges and should **NEVER** be exposed to public networks or untrusted users. Only run this on trusted, isolated networks or localhost. Improper exposure could lead to complete system compromise.
+
 ## Overview
 
 Sirberus is a unified control plane for managing systemd services and containers. It provides a single, intuitive interface for controlling and monitoring your system services and containerized applications.

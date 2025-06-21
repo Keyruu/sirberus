@@ -4,14 +4,23 @@ import { LogsError } from '@/components/container/logs/LogsError';
 import { LogsHeader } from '@/components/container/logs/LogsHeader';
 import { useContainer } from '@/hooks/use-container';
 import { useContainerLogs } from '@/hooks/use-container-logs';
-import { useState } from 'react';
-import { useParams } from 'react-router';
+import { useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 
 export function ContainerLogsPage() {
 	const { containerId } = useParams();
+	const navigate = useNavigate();
 	const [numLines, setNumLines] = useState('100');
+	const [filterText, setFilterText] = useState('');
+	const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
 	const { container } = useContainer(containerId || '');
 	const { logs, status, controls } = useContainerLogs(containerId || '', numLines);
+
+	// Filter logs based on filterText
+	const filteredLogs = useMemo(
+		() => (filterText ? logs.filter(log => log.message.toLowerCase().includes(filterText.toLowerCase())) : logs),
+		[logs, filterText]
+	);
 
 	if (!containerId || !container) {
 		return (
@@ -25,20 +34,34 @@ export function ContainerLogsPage() {
 	}
 
 	return (
-		<div className="p-6">
-			<LogsHeader container={container} />
+		<div className="p-6 space-y-4">
+			<LogsHeader container={container} isLoading={false} onNavigateBack={() => navigate('/container')} />
 
 			<LogsControls
-				isStreaming={status.isStreaming}
 				numLines={numLines}
 				onNumLinesChange={setNumLines}
-				onStartStreaming={controls.startStreaming}
-				onStopStreaming={controls.stopStreaming}
-				onClearLogs={controls.clearAndRefresh}
-				onDownloadLogs={controls.downloadLogs}
+				isStreaming={status.isStreaming}
+				onToggleStreaming={status.isStreaming ? controls.stopStreaming : controls.startStreaming}
+				onRefresh={controls.clearAndRefresh}
+				onDownload={controls.downloadLogs}
+				filterText={filterText}
+				onFilterTextChange={setFilterText}
+				isAutoScrollEnabled={isAutoScrollEnabled}
+				onAutoScrollChange={setIsAutoScrollEnabled}
 			/>
 
-			{status.error ? <LogsError error={status.error} /> : <LogsDisplay logs={logs} />}
+			{status.error && <LogsError error={status.error} />}
+
+			<LogsDisplay
+				logs={filteredLogs}
+				isLoading={false}
+				isStreaming={status.isStreaming}
+				isAutoScrollEnabled={isAutoScrollEnabled}
+			/>
+
+			<div className="text-sm text-muted-foreground">
+				{filteredLogs.length} log entries {filterText && `(filtered from ${logs.length})`}
+			</div>
 		</div>
 	);
 }
