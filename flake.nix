@@ -69,11 +69,15 @@
             echo "✅ Embedded React frontend built with Nix"
           '';
 
+          postInstall = ''
+            mv $out/bin/app $out/bin/sirberus
+          '';
+
           meta = with pkgs.lib; {
             description = "Systemd and container management tool with embedded React frontend";
             homepage = "https://github.com/Keyruu/sirberus";
             license = licenses.mit;
-            mainProgram = "app";
+            mainProgram = "sirberus";
           };
         };
 
@@ -181,7 +185,7 @@
         # Application runner
         apps.default = flake-utils.lib.mkApp {
           drv = sirberus;
-          exePath = "/bin/app";
+          exePath = "/bin/sirberus";
         };
       }
     );
