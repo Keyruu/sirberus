@@ -98,7 +98,11 @@ export function ContainerPage() {
 		{
 			accessorKey: 'ports',
 			header: ({ column }) => <DataTableColumnHeader column={column} title="Ports" />,
-			cell: ({ row }) => <div className="text-sm text-muted-foreground">{row.original.ports || '-'}</div>,
+			cell: ({ row }) => (
+				<div className="text-sm text-muted-foreground break-words whitespace-normal max-w-xs">
+					{row.original.ports || '-'}
+				</div>
+			),
 			enableSorting: true,
 		},
 		{
