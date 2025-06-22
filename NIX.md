@@ -23,22 +23,28 @@ nix develop
 ## Building Options
 
 ### 🚀 Complete Application (Recommended)
+
 ```bash
 nix build
 ```
+
 **Fully Automated Build:**
+
 - ✅ Builds React frontend from source using pnpm
 - ✅ Embeds the built frontend into Go binary
 - ✅ Single command builds everything
 - ✅ No manual steps required
 
 ### 🔧 Backend Only
+
 ```bash
 nix build .#sirberus-backend
 ```
+
 Builds only the Go backend with basic web interface (smallest build).
 
 ### 🎯 Individual Components
+
 Build specific parts of the application:
 
 ```bash
@@ -46,7 +52,7 @@ Build specific parts of the application:
 nix build .#web
 
 # Build only the Go backend (with minimal UI)
-nix build .#sirberus-backend
+nix build .#backend
 
 # The default build includes both automatically
 nix build
@@ -55,11 +61,13 @@ nix build
 ## Development Environment
 
 ### Enter Development Shell
+
 ```bash
 nix develop
 ```
 
 **Includes all development tools:**
+
 - 🐹 Go 1.24+ with language server
 - 📦 Node.js 20 + pnpm
 - 🔧 just, git, curl, jq, httpie
@@ -68,6 +76,7 @@ nix develop
 - 🎨 Nix formatting tools
 
 ### Development Workflow
+
 ```bash
 # Generate API specs and TypeScript client
 just gen-all
@@ -88,6 +97,7 @@ cd web && pnpm run dev-all
 ## Running the Application
 
 ### Using Nix
+
 ```bash
 # Run default build
 nix run
@@ -97,6 +107,7 @@ nix run .#backend-only
 ```
 
 ### Direct Execution
+
 ```bash
 # After building
 ./result/bin/app
@@ -110,6 +121,7 @@ nix run .#backend-only
 ## Build Outputs
 
 The built application creates a `result` symlink:
+
 - `result/bin/app` - Main Sirberus binary
 - Web assets are embedded in the binary
 - Single-file deployment ready
@@ -117,17 +129,20 @@ The built application creates a `result` symlink:
 ## Features
 
 ### 🎨 Enhanced Web Interface
+
 - **Full React Frontend** (when `web/dist` exists)
 - **Enhanced Minimal UI** (fallback with modern design)
 - **API Documentation** (always available at `/api/swagger`)
 
 ### 🔧 Development Features
+
 - **Hot Reload** - React dev server with API proxy
 - **Code Generation** - OpenAPI → TypeScript client
 - **Testing** - Go test suite integration
 - **Linting** - Go and TypeScript linting tools
 
 ### 📦 Deployment Options
+
 - **Single Binary** - Everything embedded
 - **Container Ready** - Works in Docker/Podman
 - **systemd Integration** - Native systemd service management
@@ -135,22 +150,27 @@ The built application creates a `result` symlink:
 ## Troubleshooting
 
 ### Git Repository Required
+
 ```bash
 git add flake.nix  # Add flake to git
 ```
 
 ### Network Issues During Build
+
 The flake avoids network access during builds by:
+
 - Using pre-built `web/dist` when available
 - Falling back to embedded minimal UI
 - All dependencies fetched through Nix
 
 ### Force Rebuild
+
 ```bash
 nix build --rebuild
 ```
 
 ### Clean Build Environment
+
 ```bash
 rm -f result*
 nix store gc
@@ -158,6 +178,7 @@ nix build
 ```
 
 ### Check Build Status
+
 ```bash
 # Show what will be built
 nix build --dry-run
@@ -172,6 +193,7 @@ nix develop --command echo "Shell works!"
 ## Advanced Usage
 
 ### Custom Build Variants
+
 ```bash
 # Build specific packages
 nix build .#sirberus          # Complete app
@@ -183,6 +205,7 @@ nix run .#backend-only  # Backend only
 ```
 
 ### Integration with CI/CD
+
 ```bash
 # In CI environments
 nix build --no-sandbox  # If needed
@@ -190,8 +213,11 @@ nix flake check         # Validate flake
 ```
 
 ### Cross-Platform Builds
+
 The flake supports multiple architectures:
+
 - `x86_64-linux` (primary)
 - `aarch64-linux` (ARM64)
 - `x86_64-darwin` (macOS Intel)
 - `aarch64-darwin` (macOS Apple Silicon)
+
