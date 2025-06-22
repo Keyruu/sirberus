@@ -46,7 +46,18 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
-	port := ":9733"
+	// Get host and port from environment variables with sensible defaults
+	host := os.Getenv("HOST")
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "9733"
+	}
+	
+	addr := host + ":" + port
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
@@ -69,7 +80,7 @@ func main() {
 	containerGroup := apiGroup.Group("/container")
 	containerHandler.RegisterRoutes(containerGroup)
 
-	docs.SwaggerInfo.Host = "localhost:9733"
+	docs.SwaggerInfo.Host = addr
 	apiGroup.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	assetsFS, err := web.AssetsFS()
@@ -89,8 +100,8 @@ func main() {
 		})
 	})
 
-	logger.Info("starting server on port", "port", port)
+	logger.Info("starting server", "host", host, "port", port)
 	logger.Info("listening for incoming requests...")
 
-	router.Run(port)
+	router.Run(addr)
 }
