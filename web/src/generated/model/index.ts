@@ -7,10 +7,11 @@
  */
 
 export * from './container';
+export * from './containerDetails';
+export * from './containerDetailsLabels';
+export * from './containerDetailsNetworks';
 export * from './containerExecRequest';
-export * from './containerLabels';
 export * from './containerList';
-export * from './containerNetworks';
 export * from './containerStatus';
 export * from './errorResponse';
 export * from './message';

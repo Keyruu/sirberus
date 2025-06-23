@@ -10,4 +10,4 @@ import type { NetworkConfig } from './networkConfig';
 /**
  * Container network configurations
  */
-export type ContainerNetworks = { [key: string]: NetworkConfig };
+export type ContainerDetailsNetworks = { [key: string]: NetworkConfig };

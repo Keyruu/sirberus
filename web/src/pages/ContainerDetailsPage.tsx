@@ -49,16 +49,18 @@ export function ContainerDetailsPage() {
 		);
 	}
 
+	const containerInfo = container.container;
+
 	return (
 		<div className="p-6">
 			{/* Header */}
 			<div className="flex items-center justify-between mb-6">
 				<div>
-					<h1 className="text-2xl font-bold">{container.name}</h1>
-					<p className="text-muted-foreground">{container.id}</p>
+					<h1 className="text-2xl font-bold">{containerInfo?.name}</h1>
+					<p className="text-muted-foreground">{containerInfo?.id}</p>
 				</div>
 				<div className="flex items-center gap-2">
-					{container.status?.running ? (
+					{containerInfo?.status?.running ? (
 						<>
 							<Button variant="outline" onClick={handleStop}>
 								<Square className="h-4 w-4 mr-2" />
@@ -94,14 +96,14 @@ export function ContainerDetailsPage() {
 						<div className="grid grid-cols-2 gap-4">
 							<div>
 								<p className="text-sm font-medium text-muted-foreground">Status</p>
-								<ContainerStatusBadge container={container} />
-								{container.status?.message && (
-									<p className="text-xs text-muted-foreground mt-1">{container.status.message}</p>
+								{containerInfo && <ContainerStatusBadge container={containerInfo} />}
+								{containerInfo?.status?.message && (
+									<p className="text-xs text-muted-foreground mt-1">{containerInfo.status.message}</p>
 								)}
 							</div>
 							<div>
 								<p className="text-sm font-medium text-muted-foreground">Image</p>
-								<p className="font-mono text-sm">{container.image}</p>
+								<p className="font-mono text-sm">{containerInfo?.image}</p>
 							</div>
 							<div>
 								<p className="text-sm font-medium text-muted-foreground">Created</p>
@@ -120,7 +122,7 @@ export function ContainerDetailsPage() {
 				</Card>
 
 				{/* Resource Usage */}
-				{container.status?.running && (
+				{containerInfo?.status?.running && (
 					<Card>
 						<CardHeader>
 							<CardTitle>Resource Usage</CardTitle>
@@ -129,35 +131,35 @@ export function ContainerDetailsPage() {
 							<div className="grid grid-cols-2 gap-4">
 								<div>
 									<p className="text-sm font-medium text-muted-foreground">Memory Usage</p>
-									<p>{container.memoryUsage ? formatBytes(container.memoryUsage) : '-'}</p>
+									<p>{containerInfo?.memoryUsage ? formatBytes(containerInfo.memoryUsage) : '-'}</p>
 								</div>
 								<div>
 									<p className="text-sm font-medium text-muted-foreground">CPU Usage</p>
-									<p>{container.cpuUsage !== undefined ? `${(container.cpuUsage / 1e9).toFixed(2)}%` : '-'}</p>
+									<p>{containerInfo?.cpuUsage !== undefined ? `${containerInfo.cpuUsage.toFixed(2)}%` : '-'}</p>
 								</div>
-								{container.status?.pid && (
+								{containerInfo?.status?.pid && (
 									<div>
 										<p className="text-sm font-medium text-muted-foreground">Process ID</p>
-										<p>{container.status.pid}</p>
+										<p>{containerInfo.status.pid}</p>
 									</div>
 								)}
-								{container.status?.startedAt && (
+								{containerInfo?.status?.startedAt && (
 									<div>
 										<p className="text-sm font-medium text-muted-foreground">Started At</p>
-										<p>{new Date(container.status.startedAt).toLocaleString()}</p>
+										<p>{new Date(containerInfo.status.startedAt).toLocaleString()}</p>
 									</div>
 								)}
-								{container.status?.finishedAt && (
+								{containerInfo?.status?.finishedAt && (
 									<div>
 										<p className="text-sm font-medium text-muted-foreground">Finished At</p>
-										<p>{new Date(container.status.finishedAt).toLocaleString()}</p>
+										<p>{new Date(containerInfo.status.finishedAt).toLocaleString()}</p>
 									</div>
 								)}
-								{container.status?.exitCode !== undefined && (
+								{containerInfo?.status?.exitCode !== undefined && (
 									<div>
 										<p className="text-sm font-medium text-muted-foreground">Exit Code</p>
-										<p className={container.status.exitCode === 0 ? 'text-green-600' : 'text-red-600'}>
-											{container.status.exitCode}
+										<p className={containerInfo.status.exitCode === 0 ? 'text-green-600' : 'text-red-600'}>
+											{containerInfo.status.exitCode}
 										</p>
 									</div>
 								)}
@@ -174,7 +176,7 @@ export function ContainerDetailsPage() {
 					<CardContent className="grid gap-4">
 						<div>
 							<p className="text-sm font-medium text-muted-foreground">Ports</p>
-							<p>{container.ports || '-'}</p>
+							<p>{containerInfo?.ports || '-'}</p>
 						</div>
 						<div>
 							<p className="text-sm font-medium text-muted-foreground">Networks</p>

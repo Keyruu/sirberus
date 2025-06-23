@@ -23,7 +23,7 @@ import type {
 import * as axios from 'axios';
 import type { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-import type { Container, ContainerList, ErrorResponse, Message } from '.././model';
+import type { ContainerDetails, ContainerList, ErrorResponse, Message } from '.././model';
 
 /**
  * Get a list of all containers
@@ -124,7 +124,7 @@ export function useGetContainer<
  * Get detailed information about a specific container
  * @summary Get container details
  */
-export const getContainerId = (id: string, options?: AxiosRequestConfig): Promise<AxiosResponse<Container>> => {
+export const getContainerId = (id: string, options?: AxiosRequestConfig): Promise<AxiosResponse<ContainerDetails>> => {
 	return axios.default.get(`/container/${id}`, options);
 };
 

@@ -9,4 +9,4 @@
 /**
  * Container labels
  */
-export type ContainerLabels = { [key: string]: string };
+export type ContainerDetailsLabels = { [key: string]: string };

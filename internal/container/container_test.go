@@ -55,15 +55,15 @@ func TestWithRealContainer(t *testing.T) {
 			t.Fatalf("GetContainerDetails failed: %v", err)
 		}
 
-		if !strings.HasPrefix(containerID, details.ID) {
-			t.Errorf("Container ID mismatch: got %s, want prefix of %s", details.ID, containerID)
+		if !strings.HasPrefix(containerID, details.Container.ID) {
+			t.Errorf("Container ID mismatch: got %s, want prefix of %s", details.Container.ID, containerID)
 		}
 
-		if details.Image != testContainerImage {
-			t.Errorf("Container image mismatch: got %s, want %s", details.Image, testContainerImage)
+		if details.Container.Image != testContainerImage {
+			t.Errorf("Container image mismatch: got %s, want %s", details.Container.Image, testContainerImage)
 		}
 
-		if !details.IsRunning {
+		if !details.Container.IsRunning {
 			t.Error("Container should be running")
 		}
 
@@ -84,7 +84,7 @@ func TestWithRealContainer(t *testing.T) {
 			t.Fatalf("GetContainerDetails after stop failed: %v", err)
 		}
 
-		if details.IsRunning {
+		if details.Container.IsRunning {
 			t.Error("Container still running after stop")
 		}
 	})
@@ -103,7 +103,7 @@ func TestWithRealContainer(t *testing.T) {
 			t.Fatalf("GetContainerDetails after start failed: %v", err)
 		}
 
-		if !details.IsRunning {
+		if !details.Container.IsRunning {
 			t.Error("Container not running after start")
 		}
 	})
@@ -115,7 +115,7 @@ func TestWithRealContainer(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetContainerDetails before restart failed: %v", err)
 		}
-		initialStatus := details.Status
+		initialStatus := details.Container.Status
 
 		// Restart the container
 		err = s.RestartContainer(context.Background(), containerID)
@@ -130,13 +130,13 @@ func TestWithRealContainer(t *testing.T) {
 			t.Fatalf("GetContainerDetails after restart failed: %v", err)
 		}
 
-		if !details.IsRunning {
+		if !details.Container.IsRunning {
 			t.Error("Container not running after restart")
 		}
 
 		// The status should be different after restart
-		if details.Status.State == initialStatus.State && details.Status.Message == initialStatus.Message {
-			t.Logf("Warning: Container status unchanged after restart: %s", details.Status.Message)
+		if details.Container.Status.State == initialStatus.State && details.Container.Status.Message == initialStatus.Message {
+			t.Logf("Warning: Container status unchanged after restart: %s", details.Container.Status.Message)
 		}
 	})
 

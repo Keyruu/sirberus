@@ -35,7 +35,7 @@ export function ContainerLogsPage() {
 
 	return (
 		<div className="p-6 space-y-4">
-			<LogsHeader container={container} isLoading={false} onNavigateBack={() => navigate('/container')} />
+			{container.container && <LogsHeader container={container.container} isLoading={false} onNavigateBack={() => navigate('/container')} />}
 
 			<LogsControls
 				numLines={numLines}

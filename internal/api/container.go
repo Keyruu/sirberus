@@ -135,7 +135,7 @@ func (h *ContainerHandler) execInContainer(c *gin.Context) {
 // @Tags        containers
 // @Produce     json
 // @Param       id   path     string true "Container ID"
-// @Success     200  {object} types.Container
+// @Success     200  {object} types.ContainerDetails
 // @Failure     404  {object} types.ErrorResponse
 // @Failure     500  {object} types.ErrorResponse
 // @Router      /container/{id} [get]
@@ -143,12 +143,12 @@ func (h *ContainerHandler) getContainer(c *gin.Context) {
 	id := c.Param("id")
 	h.logger.Info("getting container details", "id", id)
 
-	container, err := h.service.GetContainerDetails(c.Request.Context(), id)
+	details, err := h.service.GetContainerDetails(c.Request.Context(), id)
 	if common.HandleError(c, err, id, "get details for container", h.logger, "Container %s not found") {
 		return
 	}
 
-	c.JSON(http.StatusOK, container)
+	c.JSON(http.StatusOK, details)
 }
 
 // @Summary     Start container

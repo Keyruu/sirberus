@@ -64,7 +64,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/Container"
+                            "$ref": "#/definitions/ContainerDetails"
                         }
                     },
                     "404": {
@@ -552,13 +552,62 @@ const docTemplate = `{
         "Container": {
             "type": "object",
             "properties": {
+                "cpuUsage": {
+                    "description": "CPU usage as percentage of a single core (can exceed 100% if using multiple cores)",
+                    "type": "number"
+                },
+                "id": {
+                    "description": "Short container ID",
+                    "type": "string"
+                },
+                "image": {
+                    "description": "Container image",
+                    "type": "string"
+                },
+                "isRunning": {
+                    "description": "Whether the container is currently running",
+                    "type": "boolean"
+                },
+                "memoryUsage": {
+                    "description": "Memory usage in bytes (only if running)",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "Container name",
+                    "type": "string"
+                },
+                "ports": {
+                    "description": "Exposed ports",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Container status information",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ContainerStatus"
+                        }
+                    ]
+                },
+                "uptime": {
+                    "description": "Uptime in seconds (time since service was started)",
+                    "type": "integer"
+                }
+            }
+        },
+        "ContainerDetails": {
+            "type": "object",
+            "properties": {
                 "command": {
                     "description": "Command running in the container",
                     "type": "string"
                 },
-                "cpuUsage": {
-                    "description": "CPU usage in nanoseconds",
-                    "type": "number"
+                "container": {
+                    "description": "Basic container information",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/Container"
+                        }
+                    ]
                 },
                 "created": {
                     "description": "Creation time",
@@ -571,28 +620,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
-                "id": {
-                    "description": "Short container ID",
-                    "type": "string"
-                },
-                "image": {
-                    "description": "Container image",
-                    "type": "string"
-                },
-                "isRunning": {
-                    "description": "Whether the container is currently running (deprecated, use Status.Running)",
-                    "type": "boolean"
-                },
                 "labels": {
                     "description": "Container labels",
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
                     }
-                },
-                "memoryUsage": {
-                    "description": "Memory usage in bytes",
-                    "type": "integer"
                 },
                 "mounts": {
                     "description": "Container mount points",
@@ -601,10 +634,6 @@ const docTemplate = `{
                         "$ref": "#/definitions/Mount"
                     }
                 },
-                "name": {
-                    "description": "Container name",
-                    "type": "string"
-                },
                 "networks": {
                     "description": "Container network configurations",
                     "type": "object",
@@ -612,21 +641,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/NetworkConfig"
                     }
                 },
-                "ports": {
-                    "description": "Exposed ports",
-                    "type": "string"
-                },
                 "size": {
                     "description": "Container size",
                     "type": "string"
-                },
-                "status": {
-                    "description": "Container status information",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/ContainerStatus"
-                        }
-                    ]
                 }
             }
         },

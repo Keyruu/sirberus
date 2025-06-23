@@ -52,7 +52,7 @@ type ContainerStatus struct {
 	Message string `json:"message"`
 } // @name ContainerStatus
 
-// Container represents a container instance
+// Container represents basic container information for list views
 type Container struct {
 	// Short container ID
 	ID string `json:"id"`
@@ -60,22 +60,30 @@ type Container struct {
 	Name string `json:"name"`
 	// Container image
 	Image string `json:"image"`
-	// Command running in the container
-	Command string `json:"command"`
-	// Creation time
-	Created time.Time `json:"created"`
 	// Container status information
 	Status ContainerStatus `json:"status"`
 	// Exposed ports
 	Ports string `json:"ports"`
+	// Whether the container is currently running
+	IsRunning bool `json:"isRunning"`
+	// CPU usage as percentage of a single core (can exceed 100% if using multiple cores)
+	CPUUsage float64 `json:"cpuUsage"`
+	// Memory usage in bytes (only if running)
+	MemoryUsage uint64 `json:"memoryUsage"`
+	// Uptime in seconds (time since service was started)
+	Uptime int64 `json:"uptime"`
+} // @name Container
+
+// ContainerDetails represents detailed container information
+type ContainerDetails struct {
+	// Basic container information
+	Container Container `json:"container"`
+	// Command running in the container
+	Command string `json:"command"`
+	// Creation time
+	Created time.Time `json:"created"`
 	// Container size
 	Size string `json:"size,omitempty"`
-	// Whether the container is currently running (deprecated, use Status.Running)
-	IsRunning bool `json:"isRunning"`
-	// CPU usage in nanoseconds
-	CPUUsage float64 `json:"cpuUsage"`
-	// Memory usage in bytes
-	MemoryUsage uint64 `json:"memoryUsage"`
 	// Container mount points
 	Mounts []Mount `json:"mounts"`
 	// Container network configurations
@@ -84,7 +92,7 @@ type Container struct {
 	Labels map[string]string `json:"labels"`
 	// Container environment variables
 	Environment []string `json:"environment"`
-} // @name Container
+} // @name ContainerDetails
 
 // ContainerExecRequest represents a request to execute a command in a container
 type ContainerExecRequest struct {
@@ -92,6 +100,7 @@ type ContainerExecRequest struct {
 	Command string `json:"command"`
 } // @name ContainerExecRequest
 
+// ContainerList represents a list of containers
 type ContainerList struct {
 	// List of containers
 	Containers []Container `json:"containers"`

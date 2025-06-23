@@ -5,40 +5,25 @@
  * API for managing systemd services and containers
  * OpenAPI spec version: 1.0
  */
-import type { ContainerLabels } from './containerLabels';
-import type { Mount } from './mount';
-import type { ContainerNetworks } from './containerNetworks';
 import type { ContainerStatus } from './containerStatus';
 
 export interface Container {
-	/** Command running in the container */
-	command?: string;
-	/** CPU usage in nanoseconds */
+	/** CPU usage as percentage of a single core (can exceed 100% if using multiple cores) */
 	cpuUsage?: number;
-	/** Creation time */
-	created?: string;
-	/** Container environment variables */
-	environment?: string[];
 	/** Short container ID */
 	id?: string;
 	/** Container image */
 	image?: string;
-	/** Whether the container is currently running (deprecated, use Status.Running) */
+	/** Whether the container is currently running */
 	isRunning?: boolean;
-	/** Container labels */
-	labels?: ContainerLabels;
-	/** Memory usage in bytes */
+	/** Memory usage in bytes (only if running) */
 	memoryUsage?: number;
-	/** Container mount points */
-	mounts?: Mount[];
 	/** Container name */
 	name?: string;
-	/** Container network configurations */
-	networks?: ContainerNetworks;
 	/** Exposed ports */
 	ports?: string;
-	/** Container size */
-	size?: string;
 	/** Container status information */
 	status?: ContainerStatus;
+	/** Uptime in seconds (time since service was started) */
+	uptime?: number;
 }

@@ -2,12 +2,45 @@ basePath: /api
 definitions:
   Container:
     properties:
+      cpuUsage:
+        description: CPU usage as percentage of a single core (can exceed 100% if
+          using multiple cores)
+        type: number
+      id:
+        description: Short container ID
+        type: string
+      image:
+        description: Container image
+        type: string
+      isRunning:
+        description: Whether the container is currently running
+        type: boolean
+      memoryUsage:
+        description: Memory usage in bytes (only if running)
+        type: integer
+      name:
+        description: Container name
+        type: string
+      ports:
+        description: Exposed ports
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/ContainerStatus'
+        description: Container status information
+      uptime:
+        description: Uptime in seconds (time since service was started)
+        type: integer
+    type: object
+  ContainerDetails:
+    properties:
       command:
         description: Command running in the container
         type: string
-      cpuUsage:
-        description: CPU usage in nanoseconds
-        type: number
+      container:
+        allOf:
+        - $ref: '#/definitions/Container'
+        description: Basic container information
       created:
         description: Creation time
         type: string
@@ -16,46 +49,24 @@ definitions:
         items:
           type: string
         type: array
-      id:
-        description: Short container ID
-        type: string
-      image:
-        description: Container image
-        type: string
-      isRunning:
-        description: Whether the container is currently running (deprecated, use Status.Running)
-        type: boolean
       labels:
         additionalProperties:
           type: string
         description: Container labels
         type: object
-      memoryUsage:
-        description: Memory usage in bytes
-        type: integer
       mounts:
         description: Container mount points
         items:
           $ref: '#/definitions/Mount'
         type: array
-      name:
-        description: Container name
-        type: string
       networks:
         additionalProperties:
           $ref: '#/definitions/NetworkConfig'
         description: Container network configurations
         type: object
-      ports:
-        description: Exposed ports
-        type: string
       size:
         description: Container size
         type: string
-      status:
-        allOf:
-        - $ref: '#/definitions/ContainerStatus'
-        description: Container status information
     type: object
   ContainerExecRequest:
     properties:
@@ -295,7 +306,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/Container'
+            $ref: '#/definitions/ContainerDetails'
         "404":
           description: Not Found
           schema:

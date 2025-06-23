@@ -93,18 +93,20 @@ func (s *ContainerService) ListContainers(ctx context.Context) (types.ContainerL
 
 		ports := formatPorts(c.Ports)
 
-		createdTime := time.Unix(0, 0)
-		if t, err := time.Parse(time.RFC3339, inspect.Created); err == nil {
-			createdTime = t
-		} else {
-			s.logger.Warn("failed to parse container creation time", "error", err, "created", inspect.Created)
-		}
-
 		// Get CPU and memory stats if container is running
 		cpuUsage := float64(0)
 		memoryUsage := uint64(0)
+		uptime := int64(0)
 
 		if inspect.State.Running {
+			layout := time.RFC3339Nano // matches Docker’s precision
+			started, err := time.Parse(layout, inspect.State.StartedAt)
+			if err != nil {
+				s.logger.Warn("failed to get uptime", "error", err, "id", c.ID)
+			}
+
+			uptime = int64(time.Since(started).Seconds()) // live uptime
+
 			stats, err := cli.ContainerStats(ctx, c.ID, false)
 			if err != nil {
 				s.logger.Warn("failed to get container stats", "error", err, "id", c.ID)
@@ -131,13 +133,12 @@ func (s *ContainerService) ListContainers(ctx context.Context) (types.ContainerL
 			ID:          c.ID[:12], // Short ID
 			Name:        strings.TrimPrefix(inspect.Name, "/"),
 			Image:       c.Image,
-			Command:     fmt.Sprintf("%s %s", inspect.Path, strings.Join(inspect.Args, " ")),
-			Created:     createdTime,
 			Status:      buildContainerStatus(inspect.State, c.Status),
 			Ports:       ports,
 			IsRunning:   inspect.State.Running,
 			CPUUsage:    cpuUsage,
 			MemoryUsage: memoryUsage,
+			Uptime:      uptime,
 		}
 
 		result = append(result, container)
@@ -166,16 +167,16 @@ func formatPorts(ports []container.Port) string {
 	return strings.Join(portStrings, ", ")
 }
 
-func (s *ContainerService) GetContainerDetails(ctx context.Context, id string) (types.Container, error) {
+func (s *ContainerService) GetContainerDetails(ctx context.Context, id string) (types.ContainerDetails, error) {
 	cli, err := s.createClient(ctx)
 	if err != nil {
-		return types.Container{}, err
+		return types.ContainerDetails{}, err
 	}
 	defer cli.Close()
 
 	inspect, err := cli.ContainerInspect(ctx, id)
 	if err != nil {
-		return types.Container{}, fmt.Errorf("failed to inspect container: %w", err)
+		return types.ContainerDetails{}, fmt.Errorf("failed to inspect container: %w", err)
 	}
 
 	createdTime := time.Unix(0, 0)
@@ -216,7 +217,7 @@ func (s *ContainerService) GetContainerDetails(ctx context.Context, id string) (
 	mounts := make([]types.Mount, 0, len(inspect.Mounts))
 	for _, m := range inspect.Mounts {
 		mode := "rw"
-		if m.RW == false {
+		if !m.RW {
 			mode = "ro"
 		}
 		mounts = append(mounts, types.Mount{
@@ -239,17 +240,23 @@ func (s *ContainerService) GetContainerDetails(ctx context.Context, id string) (
 	// Convert nat.PortMap to []container.Port and format
 	ports := formatPorts(convertPortMap(inspect.NetworkSettings.Ports))
 
-	return types.Container{
+	// Create the basic container info
+	basicInfo := types.Container{
 		ID:          id[:12], // Short ID
 		Name:        strings.TrimPrefix(inspect.Name, "/"),
 		Image:       inspect.Config.Image,
-		Command:     fmt.Sprintf("%s %s", inspect.Path, strings.Join(inspect.Args, " ")),
-		Created:     createdTime,
 		Status:      buildContainerStatus(inspect.State, inspect.State.Status),
 		Ports:       ports,
 		IsRunning:   inspect.State.Running,
 		CPUUsage:    cpuUsage,
 		MemoryUsage: memoryUsage,
+	}
+
+	return types.ContainerDetails{
+		Container:   basicInfo,
+		Command:     fmt.Sprintf("%s %s", inspect.Path, strings.Join(inspect.Args, " ")),
+		Created:     createdTime,
+		Size:        "", // This is currently not populated
 		Mounts:      mounts,
 		Networks:    networks,
 		Labels:      inspect.Config.Labels,
@@ -432,7 +439,7 @@ func (s *ContainerService) ExecInContainer(ctx context.Context, id string, comma
 						return
 					}
 
-					if inspectResp.Running == false {
+					if !inspectResp.Running {
 						if inspectResp.ExitCode != 0 {
 							errCh <- fmt.Errorf("command '%s' exited with code %d", command, inspectResp.ExitCode)
 						}
