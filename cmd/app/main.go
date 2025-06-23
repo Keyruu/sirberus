@@ -8,6 +8,7 @@ import (
 
 	docs "github.com/Keyruu/sirberus/docs"
 	"github.com/Keyruu/sirberus/internal/api"
+	"github.com/Keyruu/sirberus/internal/errors"
 	"github.com/Keyruu/sirberus/internal/types"
 	"github.com/Keyruu/sirberus/web"
 	"github.com/gin-gonic/gin"
@@ -16,14 +17,11 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-//	@title			Sirberus API
-//	@version		1.0
-//	@description	API for managing systemd services and containers
-//	@BasePath		/api
-
+// @title			Sirberus API
+// @version		1.0
+// @description	API for managing systemd services and containers
+// @BasePath		/api
 func main() {
-	// Set log level based on LOG_LEVEL environment variable
-	// Default to INFO if not set
 	logLevel := slog.LevelInfo
 	if envLevel := os.Getenv("LOG_LEVEL"); envLevel != "" {
 		switch strings.ToUpper(envLevel) {
@@ -36,7 +34,6 @@ func main() {
 		case "ERROR":
 			logLevel = slog.LevelError
 		default:
-			// If invalid level, default to INFO and log a warning
 			println("Warning: Invalid LOG_LEVEL value. Using INFO level.")
 		}
 	}
@@ -51,34 +48,45 @@ func main() {
 	if host == "" {
 		host = "127.0.0.1"
 	}
-	
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "9733"
 	}
-	
+
 	addr := host + ":" + port
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(sloggin.New(logger))
 	router.Use(gin.Recovery())
-
-	systemdHandler, err := api.NewSystemdHandler(logger)
-	if err != nil {
-		logger.Error("failed to create systemd handler", "error", err)
-		os.Exit(1)
-	}
-
-	containerHandler := api.NewContainerHandler(logger)
+	router.Use(errors.ErrorHandler(logger))
 
 	apiGroup := router.Group("/api")
 
-	systemdGroup := apiGroup.Group("/systemd")
-	systemdHandler.RegisterRoutes(systemdGroup)
+	enableSystemd := os.Getenv("ENABLE_SYSTEMD")
+	if enableSystemd != "false" {
+		systemdHandler, err := api.NewSystemdHandler(logger)
+		if err != nil {
+			logger.Error("failed to create systemd handler", "error", err)
+			os.Exit(1)
+		}
 
-	containerGroup := apiGroup.Group("/container")
-	containerHandler.RegisterRoutes(containerGroup)
+		systemdGroup := apiGroup.Group("/systemd")
+		systemdHandler.RegisterRoutes(systemdGroup)
+	}
+
+	enableContainer := os.Getenv("ENABLE_CONTAINER")
+	if enableContainer != "false" {
+		containerHandler, err := api.NewContainerHandler(logger)
+		if err != nil {
+			logger.Error("failed to create container handler", "error", err)
+			os.Exit(1)
+		}
+
+		containerGroup := apiGroup.Group("/container")
+		containerHandler.RegisterRoutes(containerGroup)
+	}
 
 	docs.SwaggerInfo.Host = addr
 	apiGroup.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

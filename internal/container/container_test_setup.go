@@ -29,7 +29,10 @@ func setupContainerService(t *testing.T) *ContainerService {
 		Level: slog.LevelDebug,
 	}))
 
-	service := NewContainerService(logger)
+	service, err := NewContainerService(logger)
+	if err != nil {
+		t.Fatalf("Failed to create container service: %v", err)
+	}
 
 	return service
 }

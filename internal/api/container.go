@@ -17,14 +17,17 @@ type ContainerHandler struct {
 	logger  *slog.Logger
 }
 
-func NewContainerHandler(logger *slog.Logger) *ContainerHandler {
+func NewContainerHandler(logger *slog.Logger) (*ContainerHandler, error) {
 	handlerLogger := logger.With("component", "container_handler")
-	service := container.NewContainerService(handlerLogger)
+	service, err := container.NewContainerService(handlerLogger)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ContainerHandler{
 		service: service,
 		logger:  handlerLogger,
-	}
+	}, nil
 }
 
 func (h *ContainerHandler) RegisterRoutes(rg *gin.RouterGroup) {

@@ -38,7 +38,6 @@ func ParseLogQueryParams(c *gin.Context, logger *slog.Logger) int {
 	return numLines
 }
 
-// HandleError handles common error cases and returns true if an error was handled
 func HandleError(c *gin.Context, err error, id string, operation string, logger *slog.Logger, notFoundMsg string) bool {
 	if err == nil {
 		return false

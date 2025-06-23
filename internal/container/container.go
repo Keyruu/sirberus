@@ -23,7 +23,7 @@ type ContainerService struct {
 	dockerHost string
 }
 
-func NewContainerService(logger *slog.Logger) *ContainerService {
+func NewContainerService(logger *slog.Logger) (*ContainerService, error) {
 	dockerHost := os.Getenv("DOCKER_HOST")
 	if dockerHost == "" {
 		if _, err := os.Stat("/var/run/docker.sock"); err == nil {
@@ -32,13 +32,15 @@ func NewContainerService(logger *slog.Logger) *ContainerService {
 			dockerHost = "unix:///run/podman/podman.sock"
 		} else if _, err := os.Stat("/run/user/1000/podman/podman.sock"); err == nil {
 			dockerHost = "unix:///run/user/1000/podman/podman.sock"
+		} else {
+			return nil, fmt.Errorf("DOCKER_HOST is not set and could not find a default socket")
 		}
 	}
 
 	return &ContainerService{
 		logger:     logger.With("component", "container_service"),
 		dockerHost: dockerHost,
-	}
+	}, nil
 }
 
 func (s *ContainerService) createClient(ctx context.Context) (*client.Client, error) {
