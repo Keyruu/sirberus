@@ -8,7 +8,6 @@ import (
 
 	docs "github.com/Keyruu/sirberus/docs"
 	"github.com/Keyruu/sirberus/internal/api"
-	"github.com/Keyruu/sirberus/internal/errors"
 	"github.com/Keyruu/sirberus/internal/types"
 	"github.com/Keyruu/sirberus/web"
 	"github.com/gin-gonic/gin"
@@ -60,7 +59,6 @@ func main() {
 	router := gin.New()
 	router.Use(sloggin.New(logger))
 	router.Use(gin.Recovery())
-	router.Use(errors.ErrorHandler(logger))
 
 	apiGroup := router.Group("/api")
 
